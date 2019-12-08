@@ -148,14 +148,13 @@ if __name__ == '__main__':
             path_to_color_map=path_to_color_map,
             evaluation_sample_freq=cfg.SAMPLE_FREQ,
             device=cfg.DEVICE,
-            drop_unknown=args.drop_unknown,
+            drop_unknown=cfg.DROP_UNKNOWN,
         )
 
         tester.evaluate(checkpoint_path)
     else:
         comm.dprint('Initializing training manager')
         batch_size = train_dataloader.batch_size
-        effective_batch_size = batch_size
         stats = (train_dataloader.dataset.mean, train_dataloader.dataset.std)
         visualization_freq = 15
         validation_freq = 1
@@ -168,7 +167,6 @@ if __name__ == '__main__':
             image_shape=image_shape,
             random_sample_size=cfg.RANDOM_SAMPLE_SIZE,
             batch_size=batch_size,
-            effective_batch_size=effective_batch_size,
             train_dataloader=train_dataloader,
             val_dataloader=val_dataloader,
             test_dataloader=val_dataloader,

@@ -71,7 +71,6 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                  image_shape=None,
                  base_order=0,
                  max_sample_order=7,
-                 effective_batch_size=1,
                  data_format='pano',
                  random_sample_size=0,
                  validation_freq=1,
@@ -103,7 +102,6 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         self.data_format = data_format
 
         if self.data_format == 'pano':
-            self.eff_bs = effective_batch_size
             self.random_sample_size = random_sample_size
             self.num_patches = compute_num_faces(base_order)
             self.base_order = base_order
@@ -264,28 +262,22 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             if self.data_format == 'pano':
                 # Run a forward pass on each effective batch of the random samples
                 N, C, H, W = inputs.shape
-                for i in range(self.bs * self.random_sample_size // self.eff_bs):
-                    net_input = inputs[i * self.eff_bs:(i + 1) * self.eff_bs, ...]
-                    net_gt = gt[i * self.eff_bs:(i + 1) * self.eff_bs, ...]
-                    output = self.forward_pass(net_input)
+                output = self.forward_pass(inputs)
 
-                    # Compute the loss
-                    loss = self.compute_loss(output, net_gt)
+                # Compute the loss
+                loss = self.compute_loss(output, gt)
 
-                    # Backpropagation of the loss
-                    self.backward_pass(loss)
-                    self.loss.update(loss.item(), N)
+                # Backpropagation of the loss
+                self.backward_pass(loss)
+                self.loss.update(loss.item(), N)
 
-                    # for name, p in self.network.named_parameters():
-                    #     self.print(name, p.min().item(), p.max().item(), p.mean().item(), p.std().item())
-
-                    # Every few batches
-                    if (batch_num % self.visualization_freq == 0) and (i == 0):
-                        # Visualize the loss
-                        self.visualize_loss(batch_num)
-                        self.visualize_training_metrics(batch_num)
-                        self.visualize_samples(net_input, net_gt, other, output)
-                        self.print_batch_report(batch_num)
+                # Every few batches
+                if batch_num % self.visualization_freq == 0:
+                    # Visualize the loss
+                    self.visualize_loss(batch_num)
+                    self.visualize_training_metrics(batch_num)
+                    self.visualize_samples(inputs, gt, other, output)
+                    self.print_batch_report(batch_num)
 
                 # Update batch times
                 self.batch_time_meter.update(time.time() - end)
@@ -347,34 +339,29 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                 if self.data_format == 'pano':
                     # Run a forward pass on each pass separately
                     # (necessary due to BatchNorm)
-                    for i in range(self.bs * self.random_sample_size //
-                                   self.eff_bs):
-                        net_input = inputs[i * self.eff_bs:(i + 1) *
-                                           self.eff_bs, ...]
-                        net_gt = gt[i * self.eff_bs:(i + 1) * self.eff_bs, ...]
-                        output = self.forward_pass(net_input)
+                    output = self.forward_pass(inputs)
     
+                    if self.distributed:
+                        K = torch.distributed.get_world_size()
+                        output_all = [torch.empty_like(output)
+                                      for _ in range(K)]
+                        gt_all = [torch.empty_like(gt)
+                                      for _ in range(K)]
+                        torch.distributed.all_gather(output_all, output)
+                        torch.distributed.all_gather(gt_all, gt)
+                    if self.local_rank == 0:
                         if self.distributed:
-                            K = torch.distributed.get_world_size()
-                            output_all = [torch.empty_like(output)
-                                          for _ in range(K)]
-                            net_gt_all = [torch.empty_like(net_gt)
-                                          for _ in range(K)]
-                            torch.distributed.all_gather(output_all, output)
-                            torch.distributed.all_gather(net_gt_all, net_gt)
-                        if self.local_rank == 0:
-                            if self.distributed:
-                                output = torch.cat(output_all, 0)
-                                net_gt = torch.cat(net_gt_all, 0)
-    
-                            # Compute validation loss
-                            val_loss = self.compute_loss(output, net_gt, True)
-                            self.mean_val_loss += val_loss
-                            cnt += 1
-    
-                            # Compute the evaluation metrics
-                            self.compute_eval_metrics(output, net_gt)
- 
+                            output = torch.cat(output_all, 0)
+                            gt = torch.cat(gt_all, 0)
+
+                        # Compute validation loss
+                        val_loss = self.compute_loss(output, gt, True)
+                        self.mean_val_loss += val_loss
+                        cnt += 1
+
+                        # Compute the evaluation metrics
+                        self.compute_eval_metrics(output, gt)
+
                 elif self.data_format == 'data':
                     output = self.forward_pass(inputs)
 
