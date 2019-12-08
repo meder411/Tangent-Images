@@ -22,6 +22,11 @@ def dprint(*args, **kwargs):
         print(*args, **kwargs)
 
 
+def synchronize():
+    if get_world_size() > 1:
+        dist.barrier()
+
+
 def initialize(local_rank, distributed):
     if distributed:
         dprint('Initializing distributed group')

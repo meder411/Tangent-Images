@@ -4,14 +4,14 @@ import random
 import os
 import torch
 import visdom
+from torch import nn
 
 from ss import comm
 from ss.config_defaults import _C as cfg
 from ss.data import build_dataloader
 from ss.models import build_model, get_checkpoint_path
 from ss.models import build_optimizer, build_criterion, build_scheduler
-from ss.training_manager import PerspectiveManagerPanoSemSeg
-from ss.testing_manager import TextureBakedTestingManagerSemSeg
+from ss.engine import PerspectiveManagerPanoSemSeg
 
 
 def parse_args():
@@ -53,8 +53,6 @@ def check_arguments(cfg, args):
     assert cfg.DATASET in ['synthia', 'stanford'], 'Dataset not supported.'
     assert cfg.MODEL_TYPE in ['zhangunet', 'resnet101', 'hexunet']
     assert cfg.SCHEDULER in ['step', 'multistep', 'thirdparty']
-    assert not (args.distributed and args.evaluate), \
-        'Distributed eval is not supported.'
 
 
 if __name__ == '__main__':
@@ -103,7 +101,7 @@ if __name__ == '__main__':
 
     # Visdom visualization
     vis = visdom.Visdom(server=cfg.VISDOM.SERVER, env=experiment_name) \
-        if args.local_rank == 0 else None
+        if args.local_rank == 0 and not args.evaluate else None
 
     # Datasets
     train_dataloader = build_dataloader(cfg, num_gpus, args.distributed,
@@ -117,16 +115,22 @@ if __name__ == '__main__':
     if not args.distributed:
         model = torch.nn.DataParallel(
             model, device_ids=device_ids)
+        model = model.to(cfg.DEVICE)
     else:
+        model = model.to(cfg.DEVICE)
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[args.local_rank],
-            output_device=args.local_rank,
+            output_device=args.local_rank
         )
-    model = model.to(cfg.DEVICE)
 
-    optimizer = build_optimizer(cfg, model)
-    criterion = build_criterion(cfg)
-    scheduler = build_scheduler(cfg, optimizer)
+    if not args.evaluate:
+        optimizer = build_optimizer(cfg, model)
+        criterion = build_criterion(cfg)
+        scheduler = build_scheduler(cfg, optimizer)
+    else:
+        optimizer = None
+        criterion = None
+        scheduler = None
 
     # TODO: avoid hard-coding parameters here
     H, W = (2048, 4096)
@@ -135,57 +139,51 @@ if __name__ == '__main__':
     image_shape = (H // scale_denom, W // scale_denom)
 
     if args.evaluate:
+        data_format = 'pano'
         sample_dir = os.path.join('samples', experiment_name)
         os.makedirs(sample_dir, exist_ok=True)
-        tester = TextureBakedTestingManagerSemSeg(
-            sample_dir=sample_dir,
-            base_order=cfg.BASE_ORDER,
-            max_sample_order=cfg.SAMPLE_ORDER,
-            image_shape=image_shape,
-            network=model,
-            checkpoint_dir=checkpoint_dir,
-            dataloader=val_dataloader,
-            path_to_color_map=path_to_color_map,
-            evaluation_sample_freq=cfg.SAMPLE_FREQ,
-            device=cfg.DEVICE,
-            drop_unknown=cfg.DROP_UNKNOWN,
-        )
-
-        tester.evaluate(checkpoint_path)
+        visualization_freq = 0
+        validation_freq = 0
+        num_epochs = 0
     else:
-        comm.dprint('Initializing training manager')
-        batch_size = train_dataloader.batch_size
-        stats = (train_dataloader.dataset.mean, train_dataloader.dataset.std)
+        data_format = cfg.DATA_FORMAT
+        sample_dir = None
         visualization_freq = 15
         validation_freq = 1
-        trainer = PerspectiveManagerPanoSemSeg(
-            network=model,
-            checkpoint_dir=checkpoint_dir,
-            name=experiment_name,
-            base_order=cfg.BASE_ORDER,
-            max_sample_order=cfg.SAMPLE_ORDER,
-            image_shape=image_shape,
-            random_sample_size=cfg.RANDOM_SAMPLE_SIZE,
-            batch_size=batch_size,
-            train_dataloader=train_dataloader,
-            val_dataloader=val_dataloader,
-            test_dataloader=val_dataloader,
-            path_to_color_map=path_to_color_map,
-            criterion=criterion,
-            optimizer=optimizer,
-            visdom=vis,
-            scheduler=scheduler,
-            num_epochs=cfg.NUM_EPOCHS,
-            validation_freq=validation_freq,
-            visualization_freq=visualization_freq,
-            evaluation_sample_freq=cfg.SAMPLE_FREQ,
-            device=cfg.DEVICE,
-            drop_unknown=cfg.DROP_UNKNOWN,
-            stats=stats,
-            distributed=args.distributed,
-            local_rank=args.local_rank,
-            train_mode=train_mode,
-            data_format=cfg.DATA_FORMAT,
-        )
+        num_epochs = cfg.NUM_EPOCHS
 
-        trainer.train(checkpoint_path, load_weights_only)
+    stats = (train_dataloader.dataset.mean, train_dataloader.dataset.std)
+
+    engine = PerspectiveManagerPanoSemSeg(
+        network=model,
+        checkpoint_dir=checkpoint_dir,
+        name=experiment_name,
+        base_order=cfg.BASE_ORDER,
+        max_sample_order=cfg.SAMPLE_ORDER,
+        image_shape=image_shape,
+        random_sample_size=cfg.RANDOM_SAMPLE_SIZE,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        test_dataloader=val_dataloader,
+        path_to_color_map=path_to_color_map,
+        criterion=criterion,
+        optimizer=optimizer,
+        visdom=vis,
+        scheduler=scheduler,
+        num_epochs=num_epochs,
+        validation_freq=validation_freq,
+        visualization_freq=visualization_freq,
+        evaluation_sample_freq=cfg.SAMPLE_FREQ,
+        device=cfg.DEVICE,
+        drop_unknown=cfg.DROP_UNKNOWN,
+        stats=stats,
+        distributed=args.distributed,
+        local_rank=args.local_rank,
+        train_mode=train_mode,
+        data_format=data_format,
+    )
+
+    if args.evaluate:
+        engine.evaluate(checkpoint_path)
+    else:
+        engine.train(checkpoint_path, load_weights_only)
