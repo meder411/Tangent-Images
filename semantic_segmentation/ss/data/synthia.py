@@ -61,6 +61,7 @@ class OmniSynth(data.Dataset):
             for full_im_path in glob.glob(seq_template):
                 parts = full_im_path.split('/')
                 parts[subst_index] = labels_folder
+                parts = ['/'] + parts
                 labels_path = os.path.join(*parts)
 
                 self.data_points.append((full_im_path, labels_path))

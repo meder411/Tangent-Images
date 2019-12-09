@@ -139,14 +139,12 @@ if __name__ == '__main__':
     image_shape = (H // scale_denom, W // scale_denom)
 
     if args.evaluate:
-        data_format = 'pano'
         sample_dir = os.path.join('samples', experiment_name)
         os.makedirs(sample_dir, exist_ok=True)
         visualization_freq = 0
         validation_freq = 0
         num_epochs = 0
     else:
-        data_format = cfg.DATA_FORMAT
         sample_dir = None
         visualization_freq = 15
         validation_freq = 1
@@ -180,7 +178,7 @@ if __name__ == '__main__':
         distributed=args.distributed,
         local_rank=args.local_rank,
         train_mode=train_mode,
-        data_format=data_format,
+        data_format=cfg.DATA_FORMAT,
     )
 
     if args.evaluate:
