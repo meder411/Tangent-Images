@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-from mapped_convolution.util import *
+from tangent_images.util import *
 
 from .comm import synchronize
 from .utils import *
@@ -119,8 +119,7 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         if self.data_format == 'pano':
             rgb, labels = pano_data_to_patches(
                 self.bispherical_resample_to_texture,
-                self.nearest_resample_to_texture,
-                rgb, labels)
+                self.nearest_resample_to_texture, rgb, labels)
 
             if train:
                 # Randomly sample patches
@@ -244,7 +243,7 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             for batch_num, data in enumerate(self.test_dataloader):
                 self.print('Validating batch {}/{}'.format(
                     batch_num, len(self.test_dataloader)),
-                      end='\r')
+                           end='\r')
 
                 # Parse the data
                 inputs, gt, other = self.parse_data(data, False)
@@ -255,10 +254,8 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
 
                 if self.distributed:
                     K = torch.distributed.get_world_size()
-                    output_all = [torch.empty_like(output)
-                                  for _ in range(K)]
-                    gt_all = [torch.empty_like(gt)
-                              for _ in range(K)]
+                    output_all = [torch.empty_like(output) for _ in range(K)]
+                    gt_all = [torch.empty_like(gt) for _ in range(K)]
                     torch.distributed.all_gather(output_all, output)
                     torch.distributed.all_gather(gt_all, gt)
                 if self.local_rank == 0:
@@ -330,10 +327,8 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
 
                 if self.distributed:
                     K = torch.distributed.get_world_size()
-                    output_all = [torch.empty_like(output)
-                                  for _ in range(K)]
-                    gt_all = [torch.empty_like(gt)
-                              for _ in range(K)]
+                    output_all = [torch.empty_like(output) for _ in range(K)]
+                    gt_all = [torch.empty_like(gt) for _ in range(K)]
                     torch.distributed.all_gather(output_all, output)
                     torch.distributed.all_gather(gt_all, gt)
                 if self.local_rank == 0:
@@ -345,9 +340,11 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                     gt_labels = gt.long()
                     pred_labels = self.compute_labels(output, gt_labels)
 
-                    pred_labels = pred_labels.view(-1, b, *pred_labels.shape[1:])
+                    pred_labels = pred_labels.view(-1, b,
+                                                   *pred_labels.shape[1:])
                     gt_labels = gt_labels.view(-1, b, *gt_labels.shape[1:])
-                    self.compute_eval_metrics(pred_labels, gt_labels,
+                    self.compute_eval_metrics(pred_labels,
+                                              gt_labels,
                                               convert_to_pano=True)
 
                 # If trying to save intermediate outputs
@@ -389,7 +386,10 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         self.is_best = False
         self.mean_val_loss = 0
 
-    def compute_eval_metrics(self, pred_labels, gt_labels, convert_to_pano=False):
+    def compute_eval_metrics(self,
+                             pred_labels,
+                             gt_labels,
+                             convert_to_pano=False):
         """
         Computes metrics used to evaluate the model
         """
@@ -398,8 +398,8 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             # Convert back to pano view
             _, pred_labels, gt_labels = patches_to_pano_data(
                 self.bilinear_resample_from_uv_layer,
-                self.nearest_resample_from_uv_layer,
-                None, gt_labels, pred_labels)
+                self.nearest_resample_from_uv_layer, None, gt_labels,
+                pred_labels)
 
         # Compute scores
         int_, uni_ = iou_score(pred_labels, gt_labels)
@@ -503,17 +503,16 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         if self.data_format == 'pano':
             k = torch.randperm(rgb.shape[0])[:16]
             rgb_img = visualize_rgb(rgb[k, ...], self.stats).cpu()
-            pred_img = self.color_map[
-                pred_labels[k, ...].squeeze(1)].byte().permute(
-                    0, 3, 1, 2).cpu()
-            gt_img = self.color_map[gt_labels[k, ...].squeeze(1)].byte().permute(
-                0, 3, 1, 2).cpu()
+            pred_img = self.color_map[pred_labels[k, ...].squeeze(
+                1)].byte().permute(0, 3, 1, 2).cpu()
+            gt_img = self.color_map[gt_labels[k, ...].squeeze(
+                1)].byte().permute(0, 3, 1, 2).cpu()
         else:
             rgb_img = visualize_rgb(rgb, self.stats).cpu()
             gt_img = self.color_map[gt_labels.squeeze(1)].byte().cpu().permute(
                 0, 3, 1, 2)
-            pred_img = self.color_map[
-                pred_labels.squeeze(1)].byte().cpu().permute(0, 3, 1, 2)
+            pred_img = self.color_map[pred_labels.squeeze(
+                1)].byte().cpu().permute(0, 3, 1, 2)
 
         self.vis.images(rgb_img,
                         win='rgb',
@@ -591,7 +590,8 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             return
 
         self.iou = self.intersections / torch.clamp_min(self.unions, 1e-6)
-        self.accuracy = self.true_positives / torch.clamp_min(self.per_cls_counts, 1e-6)
+        self.accuracy = self.true_positives / torch.clamp_min(
+            self.per_cls_counts, 1e-6)
         # self.iou = self.intersections / self.unions
         # self.accuracy = self.true_positives / self.per_cls_counts
         mean_acc = self.accuracy.mean()
@@ -655,8 +655,7 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
 
         pano_rgb, pano_gt_labels, pano_pred_labels = patches_to_pano_data(
             self.bilinear_resample_from_uv_layer,
-            self.nearest_resample_from_uv_layer,
-            rgb, gt_labels, pred_labels)
+            self.nearest_resample_from_uv_layer, rgb, gt_labels, pred_labels)
         pano_rgb = pano_rgb[:, :3]
 
         for b in range(rgb.shape[1]):

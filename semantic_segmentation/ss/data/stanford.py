@@ -15,25 +15,26 @@ import os
 import os.path as osp
 import json
 
-from mapped_convolution.util import IntrinsicsModifier
+from tangent_images.util import IntrinsicsModifier
 
 
 class StanfordDataset(torch.utils.data.Dataset):
     """PyTorch dataset module for effiicient loading"""
 
-    def __init__(self,
-                 root_path,
-                 path_to_img_list,
-                 fov=(45, 45),
-                 dim=(128, 128),
-                 scale_factor=1.0,
-                 use_depth=False,
-                 clip_depth=(0.0, 4.0),
-                 data_format='data',
-                 shift_x=15,   # 40
-                 shift_y=15,   # 20
-                 mean=None,
-                 std=None):
+    def __init__(
+            self,
+            root_path,
+            path_to_img_list,
+            fov=(45, 45),
+            dim=(128, 128),
+            scale_factor=1.0,
+            use_depth=False,
+            clip_depth=(0.0, 4.0),
+            data_format='data',
+            shift_x=15,  # 40
+            shift_y=15,  # 20
+            mean=None,
+            std=None):
         """
         :param root_path: path to the root data folder.
            Expected structure:
@@ -77,8 +78,8 @@ class StanfordDataset(torch.utils.data.Dataset):
         # For consistency, we should not go above this
         # because not all images will be able to match it.
         self.max_fov = 0.7854028731372226
-        if (math.radians(fov[0]) >= self.max_fov or
-                math.radians(fov[1]) >= self.max_fov):
+        if (math.radians(fov[0]) >= self.max_fov
+                or math.radians(fov[1]) >= self.max_fov):
             raise AttributeError('Requested FOV is beyond maximum for dataset')
 
         if data_format == 'data':
@@ -111,7 +112,8 @@ class StanfordDataset(torch.utils.data.Dataset):
         basename = osp.splitext(osp.basename(relative_paths[0]))[0]
 
         cache_folder = osp.join(
-            self.root_path, 'cache',
+            self.root_path,
+            'cache',
             'fold_1',
             'data_format_{}'.format(self.data_format),
             'scale_factor_{}'.format(self.scale_factor),
@@ -120,7 +122,7 @@ class StanfordDataset(torch.utils.data.Dataset):
         if os.path.exists(cache_path):
             tmp = torch.load(cache_path)
             c = tmp.shape[0]
-            rgb, labels = torch.split(tmp, [c-1, 1], dim=0)
+            rgb, labels = torch.split(tmp, [c - 1, 1], dim=0)
 
             # Assemble the pano set
             pano_data = [rgb, labels, basename]
@@ -128,8 +130,8 @@ class StanfordDataset(torch.utils.data.Dataset):
             # Return the set of pano data
             return pano_data
 
-        rgb, mask = self.read_rgb_pano(osp.join(self.root_path,
-                                              relative_paths[0]))
+        rgb, mask = self.read_rgb_pano(
+            osp.join(self.root_path, relative_paths[0]))
         labels = self.read_semantic_pano(
             osp.join(self.root_path, relative_paths[2]))
         info = self.read_pose_info(osp.join(self.root_path, relative_paths[3]))
@@ -211,7 +213,7 @@ class StanfordDataset(torch.utils.data.Dataset):
     def read_depth_pano(self, path):
         depth = io.imread(path)
         # missing values are encoded as 2^16 - 1
-        missing_mask = (depth == 2 ** 16 - 1)
+        missing_mask = (depth == 2**16 - 1)
         # depth 0..128m is stretched to full uint16 range (1/512 m step)
         depth = depth.astype(np.float32) / 512.0
         # clip to a pre-defined range

@@ -9,7 +9,7 @@ import os.path as osp
 import cv2
 import torch.nn.functional as F
 
-from mapped_convolution.util import IntrinsicsModifier
+from tangent_images.util import IntrinsicsModifier
 
 
 class OmniSynth(data.Dataset):
@@ -37,10 +37,10 @@ class OmniSynth(data.Dataset):
         self.scale_factor = scale_factor
 
         if self.is_train:
-            extensions = ['SYNTHIA-SEQS-01-SUMMER',
-                          'SYNTHIA-SEQS-02-SUMMER',
-                          'SYNTHIA-SEQS-05-SUMMER',
-                          'SYNTHIA-SEQS-06-SUMMER']
+            extensions = [
+                'SYNTHIA-SEQS-01-SUMMER', 'SYNTHIA-SEQS-02-SUMMER',
+                'SYNTHIA-SEQS-05-SUMMER', 'SYNTHIA-SEQS-06-SUMMER'
+            ]
         else:
             extensions = ['SYNTHIA-SEQS-04-SUMMER']
 
@@ -153,8 +153,9 @@ if __name__ == '__main__':
     hist_all = np.zeros(num_classes, dtype='int64')
     for i in tqdm.tqdm(range(len(dataset))):
         rgb, labels = dataset.__getitem__(i, True)
-        hist = np.histogram(labels.flatten(), bins=num_classes,
-                            range=(0, num_classes-1))[0]
+        hist = np.histogram(labels.flatten(),
+                            bins=num_classes,
+                            range=(0, num_classes - 1))[0]
         hist_all += hist
 
     hist_all = hist_all.astype('float64')
