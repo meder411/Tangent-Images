@@ -6,9 +6,9 @@ from torch.autograd import gradcheck
 import math
 import time
 
-import _mapped_convolution_ext._resample as resample
-import _mapped_convolution_ext._weighted_resample as weighted_resample
-import _mapped_convolution_ext._uv_resample as uv_resample
+import _tangent_images_ext._resample as resample
+import _tangent_images_ext._weighted_resample as weighted_resample
+import _tangent_images_ext._uv_resample as uv_resample
 
 from .layer_utils import *
 
