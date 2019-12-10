@@ -3,3 +3,4 @@ __pycache__
 semantic_segmentation/experiments
 semantic_segmentation/samples
 
+sftp-config.json
