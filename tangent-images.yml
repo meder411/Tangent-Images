@@ -2,12 +2,11 @@ name: tangent-images
 channels:
   - pytorch
   - conda-forge
-  - anaconda
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
   - blas=1.0=mkl
-  - ca-certificates=2019.11.27=0
+  - ca-certificates=2019.11.28=hecc5488_0
   - certifi=2019.11.28=py36_0
   - cffi=1.13.2=py36h2e261b9_0
   - cloudpickle=1.2.2=py_1
@@ -16,6 +15,7 @@ dependencies:
   - cytoolz=0.10.1=py36h516909a_0
   - dask-core=2.9.0=py_0
   - decorator=4.4.1=py_0
+  - fontconfig=2.13.1=h86ecdb6_1001
   - freetype=2.9.1=h8a8886c_1
   - icu=64.2=he1b5a44_1
   - imageio=2.6.1=py36_0
@@ -26,9 +26,13 @@ dependencies:
   - libffi=3.2.1=hd88cf55_4
   - libgcc-ng=9.1.0=hdf63c60_0
   - libgfortran-ng=7.3.0=hdf63c60_0
+  - libiconv=1.15=h516909a_1005
   - libpng=1.6.37=hbc83047_0
   - libstdcxx-ng=9.1.0=hdf63c60_0
   - libtiff=4.1.0=h2733197_0
+  - libuuid=2.32.1=h14c3975_1000
+  - libxml2=2.9.10=hee79883_0
+  - matplotlib=3.1.2=py36_1
   - matplotlib-base=3.1.2=py36h250f245_1
   - mkl=2019.4=243
   - mkl-service=2.3.0=py36he904b0f_0
@@ -39,19 +43,22 @@ dependencies:
   - ninja=1.9.0=py36hfd86e86_0
   - numpy-base=1.17.4=py36hde5b4d6_0
   - olefile=0.46=py_0
-  - openssl=1.1.1=h7b6447c_0
+  - openssl=1.1.1d=h516909a_0
   - pillow=6.2.1=py36h34e0f95_0
   - pip=19.3.1=py36_0
   - pycparser=2.19=py_0
   - pyparsing=2.4.5=py_0
+  - pyqt=4.11.4=py36_3
   - python=3.6.9=h265db76_0
   - python-dateutil=2.8.1=py_0
   - pytorch=1.2.0=py3.6_cuda10.0.130_cudnn7.6.2_0
   - pywavelets=1.1.1=py36hc1659b7_0
+  - qt=4.8.7=2
   - readline=7.0=h7b6447c_5
   - scikit-image=0.16.2=py36hb3f55d8_0
   - scipy=1.3.2=py36h7c811a0_0
   - setuptools=42.0.2=py36_0
+  - sip=4.18=py36_1
   - six=1.13.0=py36_0
   - sqlite=3.30.1=h7b6447c_0
   - tk=8.6.10=hed695b0_0
@@ -70,6 +77,7 @@ dependencies:
     - numpy==1.17.4
     - opencv-contrib-python==3.4.2.17
     - opencv-python==3.4.2.17
+    - plyfile==0.7.1
     - pyyaml==5.2
     - pyzmq==18.1.1
     - requests==2.22.0
