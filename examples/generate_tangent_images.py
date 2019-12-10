@@ -4,20 +4,17 @@ import torch.nn.functional as F
 import os
 
 from tangent_images.util import *
+from skimage import io
 
-base_order = 1  # Determines the number of planes and their central location
+base_order = 1  # Determines the number of planes and their location on sphere
 sample_order = 10  # Determines the sample resolution
 kernel_size = 1  # Determines the padding to sample
-write_patches = True  # Whether to write all patches to images
-write_back2img = False  # Whether to write the image resmapled from patchs
+write_patches = False  # Whether to write all patches to images
+write_back2img = True  # Whether to write the image resmapled from patchs
 scale_factor = 1.0  # How much to scale input image by
 
 # Load and pre-process the image to donwsamples and convert to torch format
-# img = io.imread('earthmap4k.jpg')
-img = io.imread(
-    'camera_0a2acab6ce7b4cbdb431b640645eadfd_office_7_frame_equirectangular_domain_rgb.png'
-)[..., :3]
-# img = io.imread('color-bars.png')
+img = io.imread('earthmap4k.jpg')
 img = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0)
 img = F.interpolate(img,
                     scale_factor=scale_factor,
@@ -52,7 +49,6 @@ if write_patches:
     os.makedirs('patches', exist_ok=True)
     for i in range(patches.shape[1]):
         patch = torch.flip(patches[:, i, ...], (1, ))
-        # patch = patches[:, i, ...]
         io.imsave('patches/patch{:06d}.png'.format(i),
                   patch.permute(1, 2, 0).byte().numpy())
 

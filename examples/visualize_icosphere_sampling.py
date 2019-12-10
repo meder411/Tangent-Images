@@ -1,9 +1,10 @@
 import torch
 import torch.nn.functional as F
-from tangent_images.util import *
-import _tangent_images_ext._mesh as mesh
 
+import numpy as np
 import math
+
+from tangent_images.util import *
 
 kernel_size = 1  # Kernel size (so we know how much to pad)
 base_order = 3  # Base sphere resolution
@@ -17,17 +18,16 @@ num_samples = 2**(sample_order - base_order)
 num_samples_with_pad = num_samples + 2 * (kernel_size // 2)
 
 # Generate the base icosphere
-icosphere = mesh.generate_icosphere(base_order)
+icosphere = generate_icosphere(base_order)
 
 # After level 4, the vertex resolution comes pretty close to exactly halving at each subsequent order. This means we don't need to generate the sphere to compute the resolution. However, at lower levels of subdivision, we ought to compute the vertex resolution as it's not fixed
 if base_order < 5:
-    sampling_resolution = mesh.generate_icosphere(max(
-        0, base_order - 1)).get_angular_resolution()
+    sampling_resolution = generate_icosphere(max(0, base_order -
+                                                 1)).get_angular_resolution()
     if base_order == 0:
         sampling_resolution *= 2
 else:
-    sampling_resolution = mesh.generate_icosphere(5 -
-                                                  1).get_angular_resolution()
+    sampling_resolution = generate_icosphere(5 - 1).get_angular_resolution()
     sampling_resolution /= (2**(base_order - 5))
 
 # Generate the samples
