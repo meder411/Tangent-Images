@@ -8,35 +8,53 @@ import torch.utils.data
 import torch.nn.functional as F
 
 import numpy as np
-from skimage import transform, io
+from skimage import io
 
 import math
 import os
 import os.path as osp
 import json
 
-from mapped_convolution.util import IntrinsicsModifier
+from tangent_images.util import IntrinsicsModifier
 
 
 class StanfordDataset(torch.utils.data.Dataset):
-    '''PyTorch dataset module for effiicient loading'''
+    """PyTorch dataset module for effiicient loading"""
 
-    def __init__(self,
-                 root_path,
-                 path_to_img_list,
-                 fov=45,
-                 dim=128,
-                 scale_factor=1.0,
-                 use_depth=False,
-                 clip_depth=(0.0, 4.0),
-                 data_format='data',
-                 shift_x=15,   # 40
-                 shift_y=15,   # 20
-                 mean=None,
-                 std=None):
+    def __init__(
+            self,
+            root_path,
+            path_to_img_list,
+            fov=(45, 45),
+            dim=(128, 128),
+            scale_factor=1.0,
+            use_depth=False,
+            clip_depth=(0.0, 4.0),
+            data_format='data',
+            shift_x=15,  # 40
+            shift_y=15,  # 20
+            mean=None,
+            std=None):
         """
-        fov (degrees) and dim determine the output dimension of the image
-        Expects fov and dim to be tuples, e.g. (fx, fy)
+        :param root_path: path to the root data folder.
+           Expected structure:
+              area_1
+              area_2
+              ...
+              area_6
+              cache (optional)
+        :param path_to_img_list: path to list of relative paths to rgb/depth/anno
+        :param fov (degrees) and dim determine the output dimension of the image
+           Expects fov and dim to be tuples, e.g. (fx, fy)
+        :param dim (int)
+        :param scale_factor
+        :param use_depth (bool) use depth channel
+        :param clip_depth (tuple, meters): clip depth to this range
+        :param data_format (data or pano)
+        :param shift_x
+        :param shift_y
+        :param mean (tuple) mean for normalization
+        :param std (tuple) std for normalization
         """
 
         # Set up a reader to load the panos
@@ -56,11 +74,13 @@ class StanfordDataset(torch.utils.data.Dataset):
         self.shift_x = shift_x
         self.shift_y = shift_y
 
-        # Note that this is the min FOV (in radians) of images the dataset. For consistency, we should not go above this because not all images will be able to match it
+        # Note that this is the min FOV (in radians) of images the dataset.
+        # For consistency, we should not go above this
+        # because not all images will be able to match it.
         self.max_fov = 0.7854028731372226
-        if (math.radians(fov[0]) >= self.max_fov) or (math.radians(fov[1]) >=
-                                                      self.max_fov):
-            warn('Warning: Requested FOV is beyond maximum for dataset')
+        if (math.radians(fov[0]) >= self.max_fov
+                or math.radians(fov[1]) >= self.max_fov):
+            raise AttributeError('Requested FOV is beyond maximum for dataset')
 
         if data_format == 'data':
             # Modules to resample the inputs
@@ -82,7 +102,7 @@ class StanfordDataset(torch.utils.data.Dataset):
             self.std = self.std[:3]
 
     def __getitem__(self, idx, tocache=False):
-        '''Load the inputs/GT at a given index'''
+        """Load the inputs/GT at a given index"""
 
         # Select the pano set
         relative_paths = self.image_list[idx]
@@ -92,7 +112,8 @@ class StanfordDataset(torch.utils.data.Dataset):
         basename = osp.splitext(osp.basename(relative_paths[0]))[0]
 
         cache_folder = osp.join(
-            self.root_path, 'cache',
+            self.root_path,
+            'cache',
             'fold_1',
             'data_format_{}'.format(self.data_format),
             'scale_factor_{}'.format(self.scale_factor),
@@ -101,7 +122,7 @@ class StanfordDataset(torch.utils.data.Dataset):
         if os.path.exists(cache_path):
             tmp = torch.load(cache_path)
             c = tmp.shape[0]
-            rgb, labels = torch.split(tmp, [c-1, 1], dim=0)
+            rgb, labels = torch.split(tmp, [c - 1, 1], dim=0)
 
             # Assemble the pano set
             pano_data = [rgb, labels, basename]
@@ -109,11 +130,11 @@ class StanfordDataset(torch.utils.data.Dataset):
             # Return the set of pano data
             return pano_data
 
-        rgb, mask = self.readRGBPano(osp.join(self.root_path,
-                                              relative_paths[0]))
-        labels = self.readSemanticPano(
+        rgb, mask = self.read_rgb_pano(
+            osp.join(self.root_path, relative_paths[0]))
+        labels = self.read_semantic_pano(
             osp.join(self.root_path, relative_paths[2]))
-        info = self.readPoseInfo(osp.join(self.root_path, relative_paths[3]))
+        info = self.read_pose_info(osp.join(self.root_path, relative_paths[3]))
         labels[mask == 0] = 0  # 14 previously
 
         # Convert to torch format from numpy -- i.e. make dimensions C x H x W
@@ -122,7 +143,7 @@ class StanfordDataset(torch.utils.data.Dataset):
 
         if self.use_depth:
             depth_path = osp.join(self.root_path, relative_paths[1])
-            depth = self.readDepthPano(depth_path)
+            depth = self.read_depth_pano(depth_path)
 
             depth = torch.from_numpy(depth).to(torch.float32).unsqueeze(0)
             # TODO: should depth be resampled with nearest interpolation?
@@ -135,12 +156,9 @@ class StanfordDataset(torch.utils.data.Dataset):
         if self.data_format == 'data':
             # Resample to normalize the camera matrices and FOV
             K = torch.tensor(info['camera_k_matrix'])
-            # rgb = self.bilinear_intrinsics_modifier(rgb.unsqueeze(0),
-            #                                         K).squeeze(0)
-            # labels = self.nearest_intrinsics_modifier(labels.unsqueeze(0),
-            #                                           K).squeeze(0)
 
-            # Randomly shift the camera by up to +/-20 degrees in each direction to capture the whole image space
+            # Randomly shift the camera by up to +/-20 degrees
+            # in each direction to capture the whole image space
             out_shift_x = 2 * self.shift_x * torch.rand(1) - self.shift_x
             out_shift_y = 2 * self.shift_y * torch.rand(1) - self.shift_y
             rgb = self.bilinear_intrinsics_modifier(rgb.unsqueeze(0), K,
@@ -176,11 +194,15 @@ class StanfordDataset(torch.utils.data.Dataset):
         return pano_data
 
     def __len__(self):
-        '''Return the size of this dataset'''
+        """Return the size of this dataset"""
         return len(self.image_list)
 
-    def readRGBPano(self, path):
-        '''Reads the RGP pano image from file, normalized the RGB vaules to [0,1].'''
+    @staticmethod
+    def read_rgb_pano(path):
+        """
+        Reads the RGP pano image from file,
+        normalized the RGB vaules to [0,1].
+        """
 
         # Normalize the image
         rgb = io.imread(path).astype(np.float32)[..., :3] / 255.
@@ -188,10 +210,10 @@ class StanfordDataset(torch.utils.data.Dataset):
 
         return rgb, mask
 
-    def readDepthPano(self, path):
+    def read_depth_pano(self, path):
         depth = io.imread(path)
         # missing values are encoded as 2^16 - 1
-        missing_mask = (depth == 2 ** 16 - 1)
+        missing_mask = (depth == 2**16 - 1)
         # depth 0..128m is stretched to full uint16 range (1/512 m step)
         depth = depth.astype(np.float32) / 512.0
         # clip to a pre-defined range
@@ -200,11 +222,13 @@ class StanfordDataset(torch.utils.data.Dataset):
         depth[missing_mask] = 0.0
         return depth
 
-    def readSemanticPano(self, path):
+    @staticmethod
+    def read_semantic_pano(path):
         # Load the semantic labels
         return io.imread(path).astype(np.int32)
 
-    def readPoseInfo(self, path):
+    @staticmethod
+    def read_pose_info(path):
         # Return the pose info as a dict
         with open(path, 'r') as f:
             info = json.load(f)

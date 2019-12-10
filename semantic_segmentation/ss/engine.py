@@ -1,55 +1,9 @@
 import torch.nn.functional as F
 
-from mapped_convolution.util import *
+from tangent_images.util import *
 
-
-def visualize_rgb(rgb, stats):
-    # Scale back to [0,255]
-    mean, std = stats
-    device = rgb.get_device()
-    mean = torch.tensor(mean).view(-1, 1, 1).to(device)
-    std = torch.tensor(std).view(-1, 1, 1).to(device)
-
-    rgb *= std[:3]
-    rgb += mean[:3]
-    return (255 * rgb).byte()
-
-
-def iou_score(pred_cls, true_cls, nclass=14, drop=[0]):
-    """
-    compute the intersection-over-union score
-    both inputs should be categorical (as opposed to one-hot)
-    """
-    intersect_ = []
-    union_ = []
-    for i in range(nclass):
-        if i not in drop:
-            intersect = ((pred_cls == i).byte() +
-                         (true_cls == i).byte()).eq(2).sum().item()
-            union = ((pred_cls == i).byte() +
-                     (true_cls == i).byte()).ge(1).sum().item()
-            intersect_.append(intersect)
-            union_.append(union)
-    return torch.tensor(intersect_), torch.tensor(union_)
-
-
-def accuracy(pred_cls, true_cls, nclass=14, drop=[0]):
-
-    positive = torch.histc(true_cls.cpu().float(),
-                           bins=nclass,
-                           min=0,
-                           max=nclass,
-                           out=None)
-    per_cls_counts = []
-    tpos = []
-    for i in range(nclass):
-        if i not in drop:
-            true_positive = ((pred_cls == i).byte() +
-                             (true_cls == i).byte()).eq(2).sum().item()
-            tpos.append(true_positive)
-            per_cls_counts.append(positive[i])
-
-    return torch.tensor(tpos), torch.tensor(per_cls_counts)
+from .comm import synchronize
+from .utils import *
 
 
 class PerspectiveManagerPanoSemSeg(NetworkManager):
@@ -57,7 +11,6 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
     def __init__(self,
                  network,
                  checkpoint_dir,
-                 batch_size,
                  path_to_color_map=None,
                  name='',
                  train_dataloader=None,
@@ -71,7 +24,6 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                  image_shape=None,
                  base_order=0,
                  max_sample_order=7,
-                 effective_batch_size=1,
                  data_format='pano',
                  random_sample_size=0,
                  validation_freq=1,
@@ -92,8 +44,6 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         # Directory to store checkpoints
         self.checkpoint_dir = checkpoint_dir
 
-        self.bs = batch_size
-
         # Mapping of labels to color
         # 14 x 3
         self.color_map = torch.from_numpy(
@@ -103,7 +53,6 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         self.data_format = data_format
 
         if self.data_format == 'pano':
-            self.eff_bs = effective_batch_size
             self.random_sample_size = random_sample_size
             self.num_patches = compute_num_faces(base_order)
             self.base_order = base_order
@@ -155,9 +104,12 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             print(*args, **kwargs)
 
     def parse_data(self, data, train=True):
-        '''
-        Returns a list of the inputs as first output, a list of the GT as a second output, and a list of the remaining info as a third output. Must be implemented.
-        '''
+        """
+        Returns a list of the inputs as first output,
+        a list of the GT as a second output,
+        and a list of the remaining info as a third output.
+        Must be implemented.
+        """
 
         # Parse the relevant data
         rgb = data[0].to(self.device)
@@ -165,8 +117,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         basename = data[-1]
 
         if self.data_format == 'pano':
-            self.bs = rgb.shape[0]  # Store number of batches
-            rgb, labels = self.pano_data_to_patches(rgb, labels)
+            rgb, labels = pano_data_to_patches(
+                self.bispherical_resample_to_texture,
+                self.nearest_resample_to_texture, rgb, labels)
 
             if train:
                 # Randomly sample patches
@@ -175,9 +128,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                 labels = labels[k, ...].contiguous()
 
             # Collapse patches and batches into one dimension
-            C, H, W = rgb.shape[-3:]
-            rgb = rgb.view(-1, C, H, W)
-            labels = labels.view(-1, 1, H, W)
+            c, h, w = rgb.shape[-3:]
+            rgb = rgb.view(-1, c, h, w)
+            labels = labels.view(-1, 1, h, w)
 
         inputs = rgb
         gt = labels
@@ -185,30 +138,8 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
 
         return inputs, gt, other
 
-    def pano_data_to_patches(self, rgb=None, gt=None):
-        """
-        Returns a set of patches
-
-        rgb : B x 3 x H x W
-        gt : B x 1 x H x W
-
-        returns
-            RGB: N x B x 3 x H x W
-            gt: N x B x 1 x H x W
-        """
-        if rgb is not None:
-            rgb = self.bispherical_resample_to_texture(rgb)
-            rgb = rgb.permute(2, 0, 1, 3, 4).contiguous()
-            rgb = torch.flip(rgb, (-2, )).contiguous()
-
-        if gt is not None:
-            gt = self.nearest_resample_to_texture(gt)
-            gt = gt.permute(2, 0, 1, 3, 4).contiguous()
-            gt = torch.flip(gt, (-2, )).contiguous()
-
-        return rgb, gt
-
-    def compute_labels(self, output, gt_labels):
+    @staticmethod
+    def compute_labels(output, gt_labels):
         """Converts raw outputs to numerical labels"""
 
         pred_labels = F.softmax(output, dim=1)
@@ -261,61 +192,34 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             # Parse the data into inputs, ground truth, and other
             inputs, gt, other = self.parse_data(data)
 
-            if self.data_format == 'pano':
-                # Run a forward pass on each effective batch of the random samples
-                N, C, H, W = inputs.shape
-                for i in range(self.bs * self.random_sample_size // self.eff_bs):
-                    net_input = inputs[i * self.eff_bs:(i + 1) * self.eff_bs, ...]
-                    net_gt = gt[i * self.eff_bs:(i + 1) * self.eff_bs, ...]
-                    output = self.forward_pass(net_input)
+            # Run a forward pass on each effective batch of the random samples
+            n, c, h, w = inputs.shape
+            output = self.forward_pass(inputs)
 
-                    # Compute the loss
-                    loss = self.compute_loss(output, net_gt)
+            # Compute the loss
+            loss = self.compute_loss(output, gt)
 
-                    # Backpropagation of the loss
-                    self.backward_pass(loss)
-                    self.loss.update(loss.item(), N)
+            # Backpropagation of the loss
+            self.backward_pass(loss)
+            self.loss.update(loss.item(), n)
 
-                    # for name, p in self.network.named_parameters():
-                    #     self.print(name, p.min().item(), p.max().item(), p.mean().item(), p.std().item())
+            # Update batch times
+            self.batch_time_meter.update(time.time() - end)
 
-                    # Every few batches
-                    if (batch_num % self.visualization_freq == 0) and (i == 0):
-                        # Visualize the loss
-                        self.visualize_loss(batch_num)
-                        self.visualize_training_metrics(batch_num)
-                        self.visualize_samples(net_input, net_gt, other, output)
-                        self.print_batch_report(batch_num)
+            # Every few batches
+            if batch_num % self.visualization_freq == 0:
+                # Visualize the loss
+                self.visualize_loss(batch_num)
+                self.visualize_training_metrics(batch_num)
+                self.visualize_samples(inputs, gt, other, output)
+                self.print_batch_report(batch_num)
 
-                # Update batch times
-                self.batch_time_meter.update(time.time() - end)
-                end = time.time()
-
-            else:
-                output = self.forward_pass(inputs)
-                total_loss = self.compute_loss(output, gt)
-                self.backward_pass(total_loss)
-                self.loss.update(total_loss.item(), inputs.shape[0])
-
-                # Update batch times
-                self.batch_time_meter.update(time.time() - end)
-                end = time.time()
-
-                # Every few batches
-                if batch_num % self.visualization_freq == 0:
-
-                    # Visualize the loss
-                    self.visualize_loss(batch_num)
-                    self.visualize_training_metrics(batch_num)
-                    self.visualize_samples(inputs, gt, other, output)
-                    self.print_batch_report(batch_num)
-
-
+            end = time.time()
 
     def forward_pass(self, inputs):
-        '''
+        """
         Returns the network output
-        '''
+        """
         output = self.network(inputs)
         if isinstance(output, dict):
             output = output['out']
@@ -339,76 +243,124 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             for batch_num, data in enumerate(self.test_dataloader):
                 self.print('Validating batch {}/{}'.format(
                     batch_num, len(self.test_dataloader)),
-                      end='\r')
+                           end='\r')
 
                 # Parse the data
                 inputs, gt, other = self.parse_data(data, False)
 
-                if self.data_format == 'pano':
-                    # Run a forward pass on each pass separately
-                    # (necessary due to BatchNorm)
-                    for i in range(self.bs * self.random_sample_size //
-                                   self.eff_bs):
-                        net_input = inputs[i * self.eff_bs:(i + 1) *
-                                           self.eff_bs, ...]
-                        net_gt = gt[i * self.eff_bs:(i + 1) * self.eff_bs, ...]
-                        output = self.forward_pass(net_input)
-    
-                        if self.distributed:
-                            K = torch.distributed.get_world_size()
-                            output_all = [torch.empty_like(output)
-                                          for _ in range(K)]
-                            net_gt_all = [torch.empty_like(net_gt)
-                                          for _ in range(K)]
-                            torch.distributed.all_gather(output_all, output)
-                            torch.distributed.all_gather(net_gt_all, net_gt)
-                        if self.local_rank == 0:
-                            if self.distributed:
-                                output = torch.cat(output_all, 0)
-                                net_gt = torch.cat(net_gt_all, 0)
-    
-                            # Compute validation loss
-                            val_loss = self.compute_loss(output, net_gt, True)
-                            self.mean_val_loss += val_loss
-                            cnt += 1
-    
-                            # Compute the evaluation metrics
-                            self.compute_eval_metrics(output, net_gt)
- 
-                elif self.data_format == 'data':
-                    output = self.forward_pass(inputs)
+                # Run a forward pass on each pass separately
+                # (necessary due to BatchNorm)
+                output = self.forward_pass(inputs)
 
+                if self.distributed:
+                    K = torch.distributed.get_world_size()
+                    output_all = [torch.empty_like(output) for _ in range(K)]
+                    gt_all = [torch.empty_like(gt) for _ in range(K)]
+                    torch.distributed.all_gather(output_all, output)
+                    torch.distributed.all_gather(gt_all, gt)
+                if self.local_rank == 0:
                     if self.distributed:
-                            K = torch.distributed.get_world_size()
-                            output_all = [torch.empty_like(output)
-                                          for _ in range(K)]
-                            gt_all = [torch.empty_like(gt)
-                                          for _ in range(K)]
-                            torch.distributed.all_gather(output_all, output)
-                            torch.distributed.all_gather(gt_all, gt)
+                        output = torch.cat(output_all, 0)
+                        gt = torch.cat(gt_all, 0)
 
+                    # Compute validation loss
+                    val_loss = self.compute_loss(output, gt, True)
+                    self.mean_val_loss += val_loss
+                    cnt += 1
 
-                    if self.local_rank == 0:
-                        if self.distributed:
-                            output = torch.cat(output_all, 0)
-                            gt = torch.cat(gt_all, 0)
-                        # Compute validation loss
-                        val_loss = self.compute_loss(output, gt, True)
-                        self.mean_val_loss += val_loss
-                        cnt += 1
+                    # Compute the evaluation metrics
+                    gt_labels = gt.long()
+                    pred_labels = self.compute_labels(output, gt_labels)
+                    self.compute_eval_metrics(pred_labels, gt_labels)
 
-                        # Compute the evaluation metrics
-                        self.compute_eval_metrics(output, gt)
+                # synchronize()
 
         # Print a report on the validation results
         self.print('Validation finished in {} seconds'.format(time.time() - s))
         self.print_evaluation_report()
         self.mean_val_loss /= max(cnt, 1)
 
+    def evaluate(self, checkpoint_path):
+        print('Evaluating model....')
+        assert self.data_format == 'pano', \
+            "Evaluation only supports pano mode"
+
+        # Put the model in eval mode
+        self.network.eval()
+
+        # Load the checkpoint to test
+        self.load_checkpoint(checkpoint_path, True)
+
+        # Reset meter
+        self.reset_eval_metrics()
+
+        # Load data
+        s = time.time()
+        with torch.no_grad():
+            for batch_num, data in enumerate(self.test_dataloader):
+                print('Evaluating batch {}/{}'.format(
+                    batch_num, len(self.test_dataloader)),
+                      end='\r')
+
+                # Parse the data
+                b = data[0].shape[0]
+                inputs, gt, other = self.parse_data(data, False)
+
+                # outputs = []
+                # num_chunks = 80
+                # for net_inputs in torch.chunk(inputs, num_chunks):
+                #     print(net_inputs.shape)
+                #     net_output = self.forward_pass(net_inputs)
+                #     outputs.append(net_output)
+                # output = torch.cat(outputs, 0)
+
+                # Run a forward pass on each pass separately
+                nb, c, h, w = inputs.shape
+                n = nb // b
+                inputs = inputs.view(-1, b, c, h, w)
+                output = torch.zeros(n, b, 14, h, w).to(self.device)
+                for i in range(n):
+                    output[i, ...] = self.forward_pass(inputs[i, ...])
+                output = output.view(nb, -1, h, w)
+
+                # output = self.forward_pass(inputs)
+
+                if self.distributed:
+                    K = torch.distributed.get_world_size()
+                    output_all = [torch.empty_like(output) for _ in range(K)]
+                    gt_all = [torch.empty_like(gt) for _ in range(K)]
+                    torch.distributed.all_gather(output_all, output)
+                    torch.distributed.all_gather(gt_all, gt)
+                if self.local_rank == 0:
+                    if self.distributed:
+                        output = torch.cat(output_all, 0)
+                        gt = torch.cat(gt_all, 0)
+
+                    # Compute the evaluation metrics
+                    gt_labels = gt.long()
+                    pred_labels = self.compute_labels(output, gt_labels)
+
+                    pred_labels = pred_labels.view(-1, b,
+                                                   *pred_labels.shape[1:])
+                    gt_labels = gt_labels.view(-1, b, *gt_labels.shape[1:])
+                    self.compute_eval_metrics(pred_labels,
+                                              gt_labels,
+                                              convert_to_pano=True)
+
+                # If trying to save intermediate outputs
+                if self.evaluation_sample_freq >= 0:
+                    # Save the intermediate outputs
+                    if batch_num % self.evaluation_sample_freq == 0:
+                        self.save_samples(inputs, gt, other, output)
+
+        # Print a report on the validation results
+        print('Evaluation finished in {} seconds'.format(time.time() - s))
+        self.print_evaluation_report()
+
     def compute_loss(self, output, gt, disable_running_mean=False):
-        '''
+        """
         Returns a loss as a list where the first element is the total loss
-        '''
+        """
         if self.drop_unknown:
             # NB: criterion must ignore -1 in this case, and not 0
             output = output[:, 1:]
@@ -421,9 +373,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         return loss
 
     def reset_eval_metrics(self):
-        '''
+        """
         Resets metrics used to evaluate the model
-        '''
+        """
         self.iou = 0
         self.accuracy = 0
         self.intersections = 0
@@ -434,12 +386,20 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         self.is_best = False
         self.mean_val_loss = 0
 
-    def compute_eval_metrics(self, output, gt):
-        '''
+    def compute_eval_metrics(self,
+                             pred_labels,
+                             gt_labels,
+                             convert_to_pano=False):
+        """
         Computes metrics used to evaluate the model
-        '''
-        gt_labels = gt.long()
-        pred_labels = self.compute_labels(output, gt_labels)
+        """
+
+        if convert_to_pano:
+            # Convert back to pano view
+            _, pred_labels, gt_labels = patches_to_pano_data(
+                self.bilinear_resample_from_uv_layer,
+                self.nearest_resample_from_uv_layer, None, gt_labels,
+                pred_labels)
 
         # Compute scores
         int_, uni_ = iou_score(pred_labels, gt_labels)
@@ -448,12 +408,12 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         self.unions += uni_.float()
         self.true_positives += true_positive.float()
         self.per_cls_counts += per_class_count.float()
-        self.count += output.shape[0]
+        self.count += pred_labels.shape[0]
 
     def load_checkpoint(self, checkpoint_path=None, weights_only=False):
-        '''
+        """
         Initializes network and/or optimizer with pretrained parameters
-        '''
+        """
         if checkpoint_path is not None:
             print('Loading checkpoint \'{}\''.format(checkpoint_path))
             checkpoint = torch.load(checkpoint_path)
@@ -461,14 +421,15 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             # If we want to continue training where we left off, load entire training state
             if not weights_only:
                 self.epoch = checkpoint['epoch']
-                experiment_name = checkpoint['experiment']
                 self.best_d1_inlier = checkpoint['best_vertex_d1_inlier']
                 self.loss.from_dict(checkpoint['loss_meter'])
             else:
                 print('NOTE: Loading weights only')
 
             # Load the optimizer and model state
-            load_optimizer(self.optimizer, checkpoint['optimizer'], self.device)
+            if self.optimizer is not None:
+                load_optimizer(self.optimizer, checkpoint['optimizer'],
+                               self.device)
             load_partial_model(self.network, checkpoint['state_dict'])
 
             print('Loaded checkpoint \'{}\' (epoch {})'.format(
@@ -477,9 +438,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             print('WARNING: No checkpoint found')
 
     def initialize_visualizations(self):
-        '''
+        """
         Initializes visualizations
-        '''
+        """
 
         if self.local_rank != 0:
             return
@@ -512,9 +473,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                                 legend=['Mean Validation Loss']))
 
     def visualize_loss(self, batch_num):
-        '''
+        """
         Updates the visdom display with the loss
-        '''
+        """
         if self.local_rank != 0:
             return
 
@@ -526,9 +487,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                       opts=dict(legend=['Total Loss']))
 
     def visualize_samples(self, inputs, gt, other, output):
-        '''
+        """
         Updates the visdom display with samples
-        '''
+        """
         if self.local_rank != 0:
             return
 
@@ -536,24 +497,22 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         rgb = inputs[:, :3, :, :]
         gt_labels = gt.long()
         pred_labels = self.compute_labels(output, gt_labels)
-        basename = other
 
         # Data is N x C x H x W
         # Outputs are N x C x H x W
         if self.data_format == 'pano':
             k = torch.randperm(rgb.shape[0])[:16]
             rgb_img = visualize_rgb(rgb[k, ...], self.stats).cpu()
-            pred_img = self.color_map[
-                pred_labels[k, ...].squeeze(1)].byte().permute(
-                    0, 3, 1, 2).cpu()
-            gt_img = self.color_map[gt_labels[k, ...].squeeze(1)].byte().permute(
-                0, 3, 1, 2).cpu()
+            pred_img = self.color_map[pred_labels[k, ...].squeeze(
+                1)].byte().permute(0, 3, 1, 2).cpu()
+            gt_img = self.color_map[gt_labels[k, ...].squeeze(
+                1)].byte().permute(0, 3, 1, 2).cpu()
         else:
             rgb_img = visualize_rgb(rgb, self.stats).cpu()
             gt_img = self.color_map[gt_labels.squeeze(1)].byte().cpu().permute(
                 0, 3, 1, 2)
-            pred_img = self.color_map[
-                pred_labels.squeeze(1)].byte().cpu().permute(0, 3, 1, 2)
+            pred_img = self.color_map[pred_labels.squeeze(
+                1)].byte().cpu().permute(0, 3, 1, 2)
 
         self.vis.images(rgb_img,
                         win='rgb',
@@ -571,9 +530,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                                   caption='Output Segmentation'))
 
     def visualize_metrics(self):
-        '''
+        """
         Updates the visdom display with the metrics
-        '''
+        """
         if self.local_rank != 0:
             return
 
@@ -607,10 +566,10 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                      win='class_accuracy',
                      opts=dict(title='Per-Class Accuracy'))
 
-    def print_batch_report(self, batch_num):
-        '''
+    def print_batch_report(self, batch_num, loss=None):
+        """
         Prints a report of the current batch
-        '''
+        """
         if self.local_rank != 0:
             return
 
@@ -624,14 +583,15 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
                   loss=self.loss))
 
     def print_evaluation_report(self):
-        '''
+        """
         Prints a report of the evaluation results
-        '''
+        """
         if self.local_rank != 0:
             return
 
         self.iou = self.intersections / torch.clamp_min(self.unions, 1e-6)
-        self.accuracy = self.true_positives / torch.clamp_min(self.per_cls_counts, 1e-6)
+        self.accuracy = self.true_positives / torch.clamp_min(
+            self.per_cls_counts, 1e-6)
         # self.iou = self.intersections / self.unions
         # self.accuracy = self.true_positives / self.per_cls_counts
         mean_acc = self.accuracy.mean()
@@ -653,9 +613,9 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
             self.is_best = True
 
     def save_checkpoint(self):
-        '''
+        """
         Saves the model state
-        '''
+        """
         if self.local_rank != 0:
             return
 
@@ -686,3 +646,48 @@ class PerspectiveManagerPanoSemSeg(NetworkManager):
         if self.sample_dir is None:
             print('No sample directory specified')
             return
+
+        # Parse loaded data
+        rgb = inputs
+        gt_labels = gt.long()
+        pred_labels = self.compute_labels(output, gt_labels)
+        basename = other
+
+        pano_rgb, pano_gt_labels, pano_pred_labels = patches_to_pano_data(
+            self.bilinear_resample_from_uv_layer,
+            self.nearest_resample_from_uv_layer, rgb, gt_labels, pred_labels)
+        pano_rgb = pano_rgb[:, :3]
+
+        for b in range(rgb.shape[1]):
+            out_dir = osp.join(self.sample_dir, 'pano', basename[b])
+            patch_dir = osp.join(out_dir, 'patches')
+            os.makedirs(out_dir, exist_ok=True)
+            os.makedirs(patch_dir, exist_ok=True)
+
+            # Save the pano versions of the image
+            io.imsave(
+                osp.join(out_dir, 'pano_input.png'),
+                visualize_rgb(pano_rgb[b],
+                              self.data_format).permute(1, 2,
+                                                        0).byte().cpu().numpy())
+            io.imsave(
+                osp.join(out_dir, 'pano_gt.png'), self.color_map[
+                    pano_gt_labels[b].squeeze()].byte().cpu().numpy())
+            io.imsave(
+                osp.join(out_dir, 'pano_pred.png'), self.color_map[
+                    pano_pred_labels[b].squeeze()].byte().cpu().numpy())
+
+            # for p in range(rgb.shape[0]):
+            #     io.imsave(
+            #         osp.join(patch_dir, 'patch{:06d}_input.png'.format(p)),
+            #         visualize_rgb(rgb[p, b, :, ...],
+            #                       self.data_format).permute(
+            #                           1, 2, 0).byte().cpu().numpy())
+            #     io.imsave(
+            #         osp.join(patch_dir, 'patch{:06d}_pred.png'.format(p)),
+            #         self.color_map[
+            #             pred_labels[p, b, 0, ...]].byte().cpu().numpy())
+            #     io.imsave(
+            #         osp.join(patch_dir, 'patch{:06d}_gt.png'.format(p)),
+            #         self.color_map[
+            #             gt_labels[p, b, 0, ...]].byte().cpu().numpy())

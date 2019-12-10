@@ -41,6 +41,7 @@ def build_dataset(cfg, is_train=True):
 
     if cfg.DATASET == 'synthia':
         dataset = OmniSynth(
+            omni_dp=cfg.DATA_ROOT,
             data_format=cfg.DATA_FORMAT,
             is_train=is_train,
             fov=(cfg.FOV, cfg.FOV),
