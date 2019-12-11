@@ -11,5 +11,5 @@ LABEL_WEIGHT: 'synthia-none'
 MODEL_TYPE: 'hexunet'
 EXPERIMENT_NAME: 'transfer-learning-fov45-dim32-synthia'
 LR: 0.0001
-VISDOM:
-  SERVER: 'bvisionserver1.cs.unc.edu'
+# VISDOM:
+#   SERVER: 'bvisionserver1.cs.unc.edu'
