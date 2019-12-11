@@ -8,7 +8,7 @@ from tangent_images.util import *
 
 kernel_size = 1  # Kernel size (so we know how much to pad)
 base_order = 3  # Base sphere resolution
-sample_order = 8  # Determines sample resolution
+sample_order = 6  # Determines sample resolution
 skip = 1  # How many to skip in sampling ones to visualize
 show_tangent_with_padding = True  # Include padding samples in tangent plane visualizations
 
@@ -63,6 +63,7 @@ print('Mean FOV X:', fov_x)
 print('Mean FOV Y:', fov_y)
 print('Mean Pixel Resolution X:', fov_x / num_samples)
 print('Mean Pixel Resolution Y:', fov_y / num_samples)
+exit()
 
 # All vertex coords
 colors = torch.zeros_like(samples_3d).byte()

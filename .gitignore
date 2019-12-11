@@ -1,11 +1,21 @@
 __pycache__
 
+# Intermediate outputs
 semantic_segmentation/experiments
 semantic_segmentation/samples
 
+# Sublime SFTP config
 sftp-config.json
 
-
+# Python build files
 dist/
 build/
 *.egg-info
+
+# Bumpversion config
+.bumpversion.cfg
+
+# Output files
+*.ply
+*.png
+*.jpg
