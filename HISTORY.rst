@@ -7,3 +7,4 @@ HISTORY
 * Backend
 * Initial examples
 * Semantic segmentation code
+* bumpversion
