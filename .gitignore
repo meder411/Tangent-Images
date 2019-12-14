@@ -12,9 +12,6 @@ dist/
 build/
 *.egg-info
 
-# Bumpversion config
-.bumpversion.cfg
-
 # Output files
 *.ply
 *.png
