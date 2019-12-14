@@ -37,197 +37,22 @@ def compute_num_faces(order):
 # -----------------------------------------------------------------------------
 
 
-def resample_vertex_to_rect(vertices, image_shape, order, nearest=False):
+def get_sampling_resolution(base_order):
     '''
-    Returns a tensor of RGB values that correspond to each vertex of the provided icosphere.
-
-    Computes a color value for each vertex in the provided icosphere by texturing it with the provided image using barycentric interpolation
+    After level 4, the vertex resolution comes pretty close to exactly halving at each subsequent order. This means we don't need to generate the sphere to compute the resolution. However, at lower levels of subdivision, we ought to compute the vertex resolution as it's not fixed.
     '''
-
-    # Get resampling map with barycentric interpolation weights
-    sample_map, interp_map = sphere_to_image_resample_map(
-        order, image_shape, nearest)
-    if vertices.is_cuda:
-        sample_map = sample_map.to(vertices.get_device())
-        interp_map = interp_map.to(vertices.get_device())
-
-    # Unresample the image to the sphere
-    if nearest:
-        layer = Unresample('nearest')
-    else:
-        layer = Unresample('bispherical')
-    rgb_rect = layer(vertices, sample_map, interp_map)
-
-    return rgb_rect
-
-
-# -----------------------------------------------------------------------------
-
-
-def resample_rgb_to_vertex(img, icosphere, order, nearest=False):
-    '''
-    Returns a tensor of RGB values that correspond to each vertex of the provided icosphere.
-
-    Computes a color value for each vertex in the provided icosphere by texturing it with the provided image using barycentric interpolation
-    '''
-
-    # Get resampling map with barycentric interpolation weights
-    sample_map, interp_map = sphere_to_image_resample_map(
-        order, img.shape[-2:], nearest)
-    if img.is_cuda:
-        sample_map = sample_map.to(img.get_device())
-        interp_map = interp_map.to(img.get_device())
-
-    # Resample the image to the sphere
-    if nearest:
-        layer = Resample('nearest')
-    else:
-        layer = Resample('bispherical')
-    rgb_vertices = layer(img, sample_map, (1, icosphere.num_vertices()),
-                         interp_map)
-
-    # Normalize color
-    sum_weights = torch.zeros(rgb_vertices.shape[-1])
-    if img.is_cuda:
-        sum_weights = sum_weights.cuda()
-    sum_weights.index_add_(0, sample_map[..., 0].long().view(-1),
-                           interp_map.view(-1))
-    rgb_vertices /= (sum_weights + 1e-12)
-
-    return rgb_vertices
-
-
-# -----------------------------------------------------------------------------
-
-
-def resample_cube_to_vertex(cube, icosphere, order, nearest=False):
-    '''
-    Returns a tensor of RGB values that correspond to each vertex of the provided icosphere.
-
-    Computes a color value for each vertex in the provided icosphere by texturing it with the provided image using barycentric interpolation
-    '''
-
-    # Get resampling map with barycentric interpolation weights
-    sample_map, interp_map = sphere_to_cube_resample_map(
-        order, cube.shape[-2], nearest)
-    if cube.is_cuda:
-        sample_map = sample_map.to(cube.get_device())
-        interp_map = interp_map.to(cube.get_device())
-
-    # Resample the image to the sphere
-    if nearest:
-        layer = Resample('nearest')
-    else:
-        layer = Resample('bispherical')
-    rgb_vertices = layer(cube, sample_map, (1, icosphere.num_vertices()),
-                         interp_map)
-
-    # Normalize color
-    sum_weights = torch.zeros(rgb_vertices.shape[-1])
-    if cube.is_cuda:
-        sum_weights = sum_weights.cuda()
-    sum_weights.index_add_(0, sample_map[..., 0].long().view(-1),
-                           interp_map.view(-1))
-    rgb_vertices /= (sum_weights + 1e-12)
-
-    return rgb_vertices
-
-
-# -----------------------------------------------------------------------------
-
-
-def resample_tangent_planes_from_rect(img, base_order, sample_order,
-                                      kernel_size):
-    '''
-    img: B x C x H x W tensor
-    '''
-
-    # Create sample map (F_base x num_samples^2 x 2)
-    sample_map = image_to_tangent_planes_resample_map(img.shape[-2:],
-                                                      base_order, sample_order,
-                                                      kernel_size)
-
-    # Put the sample map on the device, if necessary
-    if img.is_cuda:
-        sample_map = sample_map.to(img.get_device())
-
-    # Create resampling layer
-    layer = Unresample('bispherical')
-
-    # Dimension of square tangent grid
-    N = 2**(sample_order - base_order) + 2 * (kernel_size // 2)
-
-    # Resample the image to the tangent planes as (B x C x F_base x num_samples^2)
-    planes = layer(img, sample_map)
-
-    # Reshape to a separate each patch
-    B, C, F = planes.shape[:3]
-    planes = planes.view(B, C, F, N, N)
-
-    return planes
-
-
-# -----------------------------------------------------------------------------
-
-
-def resample_tangent_planes_to_rect(patches, base_order, sample_order,
-                                    kernel_size, image_shape):
-    '''
-    patches: B x C x F x N x N tensor
-    '''
-
-    # Create base icosphere
-    icosphere = mesh.generate_icosphere(base_order)
-
-    # Compute number of samples and sampling resolution based on base and sample orders
-    num_samples = 2**(sample_order - base_order)
     if base_order < 5:
-        sampling_resolution = mesh.generate_icosphere(
-            base_order - 1).get_angular_resolution()
+        sampling_resolution = generate_icosphere(max(
+            0, base_order - 1)).get_angular_resolution()
+        if base_order == 0:
+            sampling_resolution *= 2
     else:
-        sampling_resolution = mesh.generate_icosphere(
-            5 - 1).get_angular_resolution()
+        sampling_resolution = generate_icosphere(4).get_angular_resolution()
         sampling_resolution /= (2**(base_order - 5))
-
-    # Find the boundaries of the tangest planes in 3D
-    corners = tangent_plane_corners(icosphere, num_samples, num_samples,
-                                    sampling_resolution / num_samples,
-                                    sampling_resolution / num_samples, 'face')
-
-    corners = convert_spherical_to_3d(corners).squeeze()
-
-    # Compute the rays for each pixel in the equirectangular image
-    lat, lon = equirectangular_meshgrid(image_shape)[:2]
-    rays = torch.stack((lon, lat), -1).view(-1, 2)
-    quad, uv = mesh.find_tangent_plane_intersections(corners, rays)
-
-    # Reshape quad and uv back to image dims
-    quad = quad.view(*image_shape)
-    uv = uv.view(*image_shape, 2)
-
-    # Scale normalized UV coords to actual (floating point) pixel coords
-    uv *= (num_samples - 1)
-
-    # Put the sample map on the device, if necessary
-    if patches.is_cuda:
-        quad = quad.to(patches.get_device())
-        uv = uv.to(patches.get_device())
-
-    # Create resampling layer
-    layer = ResampleFromUV('bilinear')
-
-    # Resample the image to the tangent planes as (B x C x OH x OW)
-    image = layer(patches, quad, uv)
-
-    return image
+    return sampling_resolution
 
 
-# =============================================================================
-# KERNEL MAPS
 # -----------------------------------------------------------------------------
-# Kernel maps are of shape (OH, OW, K, 2) or (OH, OW, K, num_interp_pts, 2).
-# To be used with Mapped Convolutions
-# =============================================================================
 
 
 def gnomonic_kernel(spherical_coords, kh, kw, res_lat, res_lon):
@@ -363,191 +188,6 @@ def tangent_plane_corners(icosphere, kh, kw, res_lat, res_lon, source='vertex'):
 # -----------------------------------------------------------------------------
 
 
-def vertex_to_vertex_kernel_map(icosphere, kh, kw, order, nearest=False):
-    '''
-    Returns a map of the vertices and barycentric weights for convolutional filters of shape (kh, kw) that sample from an icosphere of order <order>, and store the result in each vertex of the provided <icosphere>.
-
-    First creates a gnomonic kernel projection for the vertices of the icosphere passed in. Then finds the projection of this kernel onto an icosphere of an order given by the parameter <order>. Returns the vertices that define the triangle onto which each point projects, as well as the barycentric weights for each vertex.
-
-    icosphere: icosphere object whose vertices represent locations where
-        filter is applied
-    kh: height dimension of filter
-    kw: width dimension of filter
-    order: order of the icosphere onto which the filter is applied
-        (if larger than the order of the passed-in icosphere, this represents a downsampling map; conversely if smaller, this is an upsampling operation)
-
-    returns: vertices (1, V, kh*kw, 3, 2)
-             barycentric weights (1, V, kh*kw, 3)
-
-    '''
-
-    # Get the (1, V, kh*kw, 2) map of spherical coordinates corresponding to the gnomonic kernel at the vertices of the sampling icosphere
-    ico_res = icosphere.get_angular_resolution()
-    spherical_sample_map = gnomonic_kernel_from_sphere(icosphere,
-                                                       kh,
-                                                       kw,
-                                                       ico_res,
-                                                       ico_res,
-                                                       source='vertex')
-
-    # Get faces onto which this map is projected
-    # V is (1, V, kh*kw, 3)
-    # W is (1, V, kh*kw, 3)
-    _, V, W = mesh.get_icosphere_convolution_operator(spherical_sample_map,
-                                                      order, True, nearest)
-
-    # Stack the vertices with a tensor of zeros because mapped convolution expects 2 values in the last dimension
-    V = torch.stack((V, torch.zeros_like(V)), -1)
-
-    return V.float(), W.float()
-
-
-# =============================================================================
-# RESAMPLE MAPS
-# -----------------------------------------------------------------------------
-# Resample maps are of shape (OH, OW, 2) or (OH, OW, num_interp_pts, 2).
-# To be used with Resample and Unresample operations, as opposed to the kernel
-# maps defined above, which are for use with Mapped Convolutions
-# =============================================================================
-
-
-def faces_to_equirectangular_resample_map(icosphere, image_shape):
-    '''Returns a resample map where each face is associated with a sampling location in spherical coordinates'''
-    return convert_spherical_to_image(
-        convert_3d_to_spherical(icosphere.get_face_barycenters()), image_shape)
-
-
-# -----------------------------------------------------------------------------
-
-
-def vertices_to_equirectangular_resample_map(icosphere, image_shape):
-    '''Returns a resample map where each vertex is associated with a sampling location in spherical coordinates'''
-    return convert_spherical_to_image(
-        convert_3d_to_spherical(icosphere.get_vertices()), image_shape)
-
-
-# -----------------------------------------------------------------------------
-
-
-def sphere_to_image_resample_map(order, image_shape, nearest=False):
-    '''
-    Returns a resample map where the vertices and barycentric weights of an icosphere of order <order> are associated with each pixel of an equirectangular image of size <image_shape>. Used for resampling from a sphere to an image or unresampling an image to a sphere.
-
-    It first creates a meshgrid of spherical coordinates pertaining to the image. Then projects that grid onto an icosphere of an order given by parameter <order>. Returns the vertices that define the triangle onto which each point projects, as well as the barycentric weights for each vertex. If nearest is True, set the maximum barycentric weight as 1 and the others to be 0
-
-    returns: vertices (OH, OW, 3, 2)
-             barycentric weights (OH, OW, 3)
-    '''
-
-    # Creates a map of spherical coordinates corresponding to the center of each pixel in the image
-    lat, lon, _, _ = equirectangular_meshgrid(image_shape)
-    spherical_sample_map = torch.stack((lon, lat), -1)
-
-    # Get faces onto which this map is projected
-    # V is (1, V, kh*kw, 3)
-    # W is (1, V, kh*kw, 3)
-    _, V, W = mesh.get_icosphere_convolution_operator(spherical_sample_map,
-                                                      order, False, nearest)
-
-    # Stack the vertices with a tensor of zeros because mapped convolution expects 2 values in the last dimension
-    V = torch.stack((V, torch.zeros_like(V)), -1)
-
-    return V.float(), W.float()
-
-
-# -----------------------------------------------------------------------------
-
-
-def sphere_to_cube_resample_map(order, cube_dim, nearest=False):
-    '''
-    Returns a resample map where the vertices and barycentric weights of an icosphere of order <order> are associated with each pixel of a cube map with dimension <cube_dim>. Used for resampling from a sphere to a cube map or unresampling a cube map to a sphere.
-
-    It first creates a meshgrid of spherical coordinates pertaining to the cube map image. Then projects that grid onto an icosphere of an order given by parameter <order>. Returns the vertices that define the triangle onto which each point projects, as well as the barycentric weights for each vertex. If nearest is True, set the maximum barycentric weight as 1 and the others to be 0
-
-    returns: vertices (OH, OW, 3, 2)
-             barycentric weights (OH, OW, 3)
-    '''
-
-    # Creates a map of spherical coordinates corresponding to the center of each pixel in the image
-    v, u, index = cube_meshgrid(cube_dim)
-    spherical_sample_map = convert_3d_to_spherical(
-        convert_cube_to_3d(torch.stack((u, v), -1), index, cube_dim))
-
-    # Get faces onto which this map is projected
-    # V is (1, V, kh*kw, 3)
-    # W is (1, V, kh*kw, 3)
-    _, V, W = mesh.get_icosphere_convolution_operator(spherical_sample_map,
-                                                      order, False, nearest)
-
-    # Stack the vertices with a tensor of zeros because mapped convolution expects 2 values in the last dimension
-    V = torch.stack((V, torch.zeros_like(V)), -1)
-
-    return V.float(), W.float()
-
-
-# -----------------------------------------------------------------------------
-
-
-def sphere_to_samples_resample_map(sample_map, order, nearest=False):
-    '''
-    Returns a resample map where the vertices and barycentric weights of an icosphere of order <order> are associated with sample of <sample_map>. Used for resampling from a sphere to an image or unresampling an image to a sphere.
-
-    It first creates a meshgrid of spherical coordinates pertaining to the image. Then projects that grid onto an icosphere of an order given by parameter <order>. Returns the vertices that define the triangle onto which each point projects, as well as the barycentric weights for each vertex. If nearest is True, set the maximum barycentric weight as 1 and the others to be 0
-
-    sample_map: (OH, OW, 2) samples in spherical coordinates
-    order: scalar order of icosphere to sample from
-    nearest: bool whether to use barycentric interpolation or nearest-vertex
-
-    returns: vertices (OH, OW, 3, 2)
-             barycentric weights (OH, OW, 3)
-    '''
-    # Get faces onto which this map is projected
-    # V is (1, V, kh*kw, 3)
-    # W is (1, V, kh*kw, 3)
-    _, V, W = mesh.get_icosphere_convolution_operator(sample_map, order, False,
-                                                      nearest)
-
-    if nearest:
-        # Set the max weight to 1 and the others to 1
-        W = W.max(-1, keepdim=True)[0] == W
-
-    # Stack the vertices with a tensor of zeros because mapped convolution expects 2 values in the last dimension
-    V = torch.stack((V, torch.zeros_like(V)), -1)
-
-    return V.float(), W.float()
-
-
-# -----------------------------------------------------------------------------
-
-
-def image_to_sphere_resample_map(image_shape, icosphere, source='vertex'):
-    '''
-    Returns a resample map where each vertex (or face) of the provided <icosphere> has an associated real-valued pixel location in an equirectangular image of shape <image_shape>. Used for resampling from an image to a sphere.
-
-    image_shape: (H, W)
-    icosphere: an icosphere
-    source: {'face' or 'vertex'}
-    Returns 1 x {F,V} x 2 mapping in pixel coords (x, y) per mesh element
-    '''
-
-    # Get each face's barycenter in (lon, lat) format
-    if source == 'face':
-        samples = convert_3d_to_spherical(icosphere.get_face_barycenters())
-    elif source == 'vertex':
-        samples = convert_3d_to_spherical(icosphere.get_vertices())
-    else:
-        print('Invalid source ({})'.format(source))
-        exit()
-
-    # Get the mapping functions as (1, num_samples, 2)
-    sampling_map = convert_spherical_to_image(samples,
-                                              image_shape).view(1, -1, 2)
-    return sampling_map
-
-
-# -----------------------------------------------------------------------------
-
-
 def image_to_tangent_planes_resample_map(image_shape, base_order, sample_order,
                                          kernel_size):
 
@@ -598,12 +238,13 @@ class ResampleToUVTexture(nn.Module):
     A class that maps a B x C x H x W image to B x F x C x P x P texture patches. These can be though of as a stack of F C x P x P patches. The memory layout is B x F x C x P x P in order to leverage grouped convolutions (groups = F).
     '''
 
-    def __init__(self,
-                 image_shape,
-                 base_order,
-                 sample_order,
-                 kernel_size,
-                 interpolation='bispherical'):
+    def __init__(
+            self,
+            image_shape,
+            base_order,
+            sample_order,
+            kernel_size=1,  # Only not 1 when we want to use padding
+            interpolation='bispherical'):
 
         super(ResampleToUVTexture, self).__init__()
 
@@ -656,16 +297,7 @@ class ResampleFromUVTexture(nn.Module):
 
         # Compute number of samples and sampling resolution based on base and sample orders
         num_samples = 2**(sample_order - base_order)
-        if base_order < 5:
-            sampling_resolution = mesh.generate_icosphere(max(
-                0, base_order - 1)).get_angular_resolution()
-            if base_order == 0:
-                sampling_resolution *= 2
-
-        else:
-            sampling_resolution = mesh.generate_icosphere(
-                5 - 1).get_angular_resolution()
-            sampling_resolution /= (2**(base_order - 5))
+        sampling_resolution = get_sampling_resolution(base_order)
 
         # Find the boundaries of the tangest planes in 3D
         corners = tangent_plane_corners(icosphere, num_samples, num_samples,
@@ -722,18 +354,10 @@ def get_tangent_plane_info(base_order, sample_order, img_shape):
     # Number patches
     num_faces = compute_num_faces(base_order)
 
-    # After level 4, the vertex resolution comes pretty close to exactly halving at each subsequent order. This means we don't need to generate the sphere to compute the resolution. However, at lower levels of subdivision, we ought to compute the vertex resolution as it's not fixed
-    if base_order < 5:
-        sampling_resolution = mesh.generate_icosphere(max(
-            0, base_order - 1)).get_angular_resolution()
-        if base_order == 0:
-            sampling_resolution *= 2
-    else:
-        sampling_resolution = mesh.generate_icosphere(
-            5 - 1).get_angular_resolution()
-        sampling_resolution /= (2**(base_order - 5))
+    # Sampling resolution
+    sampling_resolution = get_sampling_resolution(base_order)
 
-    # Corners of tangent planes
+    # Corners of tangent planes in 3D coordinates
     corners = tangent_plane_corners(icosphere, num_samples, num_samples,
                                     sampling_resolution / num_samples,
                                     sampling_resolution / num_samples, 'face')

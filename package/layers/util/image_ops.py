@@ -6,16 +6,6 @@ import _tangent_images_ext._mesh as mesh
 import math
 
 
-def rgb_to_gray(images):
-    """
-    images: * x ... x * x C x H x W tensor containing RGB images
-
-    returns * x ... x * x H x W grayscale images
-    """
-    return 0.299 * images[..., 0, :, :] + 0.587 * images[
-        ..., 1, :, :] + 0.114 * images[..., 2, :, :]
-
-
 def compute_sift_keypoints(img,
                            nfeatures=0,
                            nOctaveLayers=3,
@@ -111,10 +101,9 @@ def draw_keypoints(img, keypoints):
 
 def compute_crop(image_shape, crop_degree=0):
     """Compute padding space"""
+    crop_h = 0
     if crop_degree > 0:
         crop_h = image_shape[0] // (180 / crop_degree)
-    else:
-        crop_h = 0
 
     return crop_h
 

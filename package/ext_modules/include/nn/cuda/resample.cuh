@@ -38,10 +38,10 @@ void ResampleToMap2DLauncher(torch::Tensor data_in,
   AT_DISPATCH_FLOATING_TYPES(
       data_in.scalar_type(), "ResampleToMap2DKernel", ([&] {
         ResampleToMap2DKernel<scalar_t><<<blocks, CUDA_NUM_THREADS>>>(
-            num_kernels, data_in.data<scalar_t>(),
-            sample_map.data<scalar_t>(), channels, in_height, in_width,
+            num_kernels, data_in.data_ptr<scalar_t>(),
+            sample_map.data_ptr<scalar_t>(), channels, in_height, in_width,
             out_height, out_width, interpolation,
-            data_out.data<scalar_t>());
+            data_out.data_ptr<scalar_t>());
       }));
   CUDA_CHECK(cudaGetLastError())
 }
@@ -72,10 +72,10 @@ void ResampleFromMap2DLauncher(
   AT_DISPATCH_FLOATING_TYPES(
       data_in.scalar_type(), "ResampleFromMap2DKernel", ([&] {
         ResampleFromMap2DKernel<scalar_t><<<blocks, CUDA_NUM_THREADS>>>(
-            num_kernels, data_out.data<scalar_t>(),
-            sample_map.data<scalar_t>(), channels, in_height, in_width,
+            num_kernels, data_out.data_ptr<scalar_t>(),
+            sample_map.data_ptr<scalar_t>(), channels, in_height, in_width,
             out_height, out_width, interpolation,
-            data_in.data<scalar_t>());
+            data_in.data_ptr<scalar_t>());
       }));
   CUDA_CHECK(cudaGetLastError())
 }
@@ -114,11 +114,11 @@ void ResampleToMap2DWeightedLauncher(
   AT_DISPATCH_FLOATING_TYPES(
       data_in.scalar_type(), "ResampleToMap2DWeightedKernel", ([&] {
         ResampleToMap2DWeightedKernel<scalar_t><<<blocks, CUDA_NUM_THREADS>>>(
-            num_kernels, data_in.data<scalar_t>(),
-            sample_map.data<scalar_t>(),
-            interp_weights.data<scalar_t>(), channels, in_height, in_width,
+            num_kernels, data_in.data_ptr<scalar_t>(),
+            sample_map.data_ptr<scalar_t>(),
+            interp_weights.data_ptr<scalar_t>(), channels, in_height, in_width,
             out_height, out_width, interpolation, num_interp_pts,
-            data_out.data<scalar_t>());
+            data_out.data_ptr<scalar_t>());
       }));
   CUDA_CHECK(cudaGetLastError())
 }
@@ -154,11 +154,11 @@ void ResampleFromMap2DWeightedLauncher(
       data_in.scalar_type(), "ResampleFromMap2DWeightedKernel", ([&] {
         ResampleFromMap2DWeightedKernel<scalar_t>
             <<<blocks, CUDA_NUM_THREADS>>>(
-                num_kernels, data_out.data<scalar_t>(),
-                sample_map.data<scalar_t>(),
-                interp_weights.data<scalar_t>(), channels, in_height,
+                num_kernels, data_out.data_ptr<scalar_t>(),
+                sample_map.data_ptr<scalar_t>(),
+                interp_weights.data_ptr<scalar_t>(), channels, in_height,
                 in_width, out_height, out_width, interpolation, num_interp_pts,
-                data_in.data<scalar_t>());
+                data_in.data_ptr<scalar_t>());
       }));
   CUDA_CHECK(cudaGetLastError())
 }
@@ -191,9 +191,9 @@ void ResampleToMap2DVotingLauncher(
   const dim3 blocks((num_kernels + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS);
 
   ResampleToMap2DVotingKernel<<<blocks, CUDA_NUM_THREADS>>>(
-      num_kernels, data_in.data<int64_t>(), sample_map.data<int64_t>(),
+      num_kernels, data_in.data_ptr<int64_t>(), sample_map.data_ptr<int64_t>(),
       channels, in_height, in_width, out_height, out_width, numCandidates,
-      data_out.data<int64_t>());
+      data_out.data_ptr<int64_t>());
   CUDA_CHECK(cudaGetLastError())
 }
 
@@ -229,10 +229,10 @@ void ResampleFromUVMapsLauncher(
   AT_DISPATCH_FLOATING_TYPES(
       data_out.scalar_type(), "ResampleFromUVMapsKernel", ([&] {
         ResampleFromUVMapsKernel<scalar_t><<<blocks, CUDA_NUM_THREADS>>>(
-            num_kernels, data_out.data<scalar_t>(),
-            quad_idx.data<int64_t>(), tex_uv.data<scalar_t>(),
+            num_kernels, data_out.data_ptr<scalar_t>(),
+            quad_idx.data_ptr<int64_t>(), tex_uv.data_ptr<scalar_t>(),
             channels, num_textures, tex_height, tex_width, in_height, in_width,
-            interpolation, data_in.data<scalar_t>());
+            interpolation, data_in.data_ptr<scalar_t>());
       }));
   CUDA_CHECK(cudaGetLastError())
 }
@@ -271,10 +271,10 @@ void ResampleToUVMapsLauncher(torch::Tensor data_in, torch::Tensor quad_idx,
   AT_DISPATCH_FLOATING_TYPES(
       data_in.scalar_type(), "ResampleToUVMapsKernel", ([&] {
         ResampleToUVMapsKernel<scalar_t><<<blocks, CUDA_NUM_THREADS>>>(
-            num_kernels, data_in.data<scalar_t>(),
-            quad_idx.data<int64_t>(), tex_uv.data<scalar_t>(),
+            num_kernels, data_in.data_ptr<scalar_t>(),
+            quad_idx.data_ptr<int64_t>(), tex_uv.data_ptr<scalar_t>(),
             channels, num_textures, tex_height, tex_width, in_height, in_width,
-            interpolation, data_out.data<scalar_t>());
+            interpolation, data_out.data_ptr<scalar_t>());
       }));
   CUDA_CHECK(cudaGetLastError())
 }

@@ -41,16 +41,17 @@ def extension(name,
                 ['--gpu-architecture=' + compute_arch] + nvcc_compile_args
             })
     else:
-        return CppExtension(name=name,
-                            sources=[
-                                osp.join(prefix, source_basename + '.cpp'),
-                            ],
-                            include_dirs=[include_dir] + include_dirs,
-                            define_macros=[('__NO_CUDA__', None)],
-                            extra_compile_args={
-                                'cxx': ['-fopenmp', '-O3'] + cxx_compile_args,
-                                'nvcc': [] + nvcc_compile_args
-                            })
+        return CppExtension(
+            name=name,
+            sources=[
+                osp.join(prefix, source_basename + '.cpp'),
+            ],
+            include_dirs=[include_dir] + include_dirs,
+            define_macros=[('__NO_CUDA__', None)],
+            extra_compile_args={
+                'cxx': ['-fopenmp', '-O3'] + cxx_compile_args,
+                'nvcc': [] + nvcc_compile_args
+            })
 
 
 setup(

@@ -16,7 +16,7 @@ __host__ __device__ void ResampleToMap2D(
   // Locations
   const int64_t x_in = index % in_width;
   const int64_t y_in = (index / in_width) % in_height;
-  const int64_t c    = (index / in_width / in_height) % channels;
+  const int64_t c = (index / in_width / in_height) % channels;
 
   // Output image location given by the map
   const int64_t sample_map_idx = 2 * (y_in * in_width + x_in);
@@ -39,7 +39,7 @@ __host__ __device__ void ResampleFromMap2D(
   // Locations
   const int64_t x_in = index % in_width;
   const int64_t y_in = (index / in_width) % in_height;
-  const int64_t c    = (index / in_width / in_height) % channels;
+  const int64_t c = (index / in_width / in_height) % channels;
 
   // Output image location given by the output map
   const int64_t sample_map_idx = 2 * (y_in * in_width + x_in);
@@ -61,7 +61,7 @@ __host__ __device__ void ResampleToMap2DWeighted(
   // Locations
   const int64_t x_in = index % in_width;
   const int64_t y_in = (index / in_width) % in_height;
-  const int64_t c    = (index / in_width / in_height) % channels;
+  const int64_t c = (index / in_width / in_height) % channels;
 
   // Output image location given by the map
   const int64_t sample_map_idx =
@@ -88,7 +88,7 @@ __host__ __device__ void ResampleFromMap2DWeighted(
   // Locations
   const int64_t x_in = index % in_width;
   const int64_t y_in = (index / in_width) % in_height;
-  const int64_t c    = (index / in_width / in_height) % channels;
+  const int64_t c = (index / in_width / in_height) % channels;
 
   // Output image location given by the output map
   const int64_t sample_map_idx =
@@ -113,11 +113,11 @@ __host__ __device__ void ResampleToMap2DVoting(
   // Locations
   const int64_t x_in = index % in_width;
   const int64_t y_in = (index / in_width) % in_height;
-  const int64_t c    = (index / in_width / in_height) % channels;
+  const int64_t c = (index / in_width / in_height) % channels;
 
   // Output image location given by the map
   const int64_t sample_map_idx = y_in * in_width * 2 + x_in * 2;
-  const int64_t data           = data_in_ptr[index];
+  const int64_t data = data_in_ptr[index];
 
   core::ResampleToMap2DVoting(data, sample_map_ptr + sample_map_idx,
                               num_candidates, out_height, out_width,
@@ -133,9 +133,9 @@ __host__ __device__ void ResampleFromUVMaps(
     const int64_t tex_height, const int64_t tex_width, const int64_t in_height,
     const int64_t in_width, const int64_t interpolation, T *data_in_ptr) {
   // Locations
-  const int64_t x_in     = index % in_width;
-  const int64_t y_in     = (index / in_width) % in_height;
-  const int64_t c        = (index / in_width / in_height) % channels;
+  const int64_t x_in = index % in_width;
+  const int64_t y_in = (index / in_width) % in_height;
+  const int64_t c = (index / in_width / in_height) % channels;
   const int64_t quad_idx = quad_idx_ptr[y_in * in_width + x_in];
 
   // Isolate patch
@@ -158,9 +158,9 @@ __host__ __device__ void ResampleToUVMaps(
     const int64_t tex_height, const int64_t tex_width, const int64_t in_height,
     const int64_t in_width, const int64_t interpolation, T *data_out_ptr) {
   // Locations
-  const int64_t x_in     = index % in_width;
-  const int64_t y_in     = (index / in_width) % in_height;
-  const int64_t c        = (index / in_width / in_height) % channels;
+  const int64_t x_in = index % in_width;
+  const int64_t y_in = (index / in_width) % in_height;
+  const int64_t c = (index / in_width / in_height) % channels;
   const int64_t quad_idx = quad_idx_ptr[y_in * in_width + x_in];
 
   // Isolate patch
