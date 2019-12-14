@@ -20,15 +20,8 @@ num_samples_with_pad = num_samples + 2 * (kernel_size // 2)
 # Generate the base icosphere
 icosphere = generate_icosphere(base_order)
 
-# After level 4, the vertex resolution comes pretty close to exactly halving at each subsequent order. This means we don't need to generate the sphere to compute the resolution. However, at lower levels of subdivision, we ought to compute the vertex resolution as it's not fixed
-if base_order < 5:
-    sampling_resolution = generate_icosphere(max(0, base_order -
-                                                 1)).get_angular_resolution()
-    if base_order == 0:
-        sampling_resolution *= 2
-else:
-    sampling_resolution = generate_icosphere(5 - 1).get_angular_resolution()
-    sampling_resolution /= (2**(base_order - 5))
+# Get sampling resolution
+sampling_resolution = get_sampling_resolution(base_order)
 
 # Generate the samples
 spherical_sample_map = gnomonic_kernel_from_sphere(

@@ -1,9 +1,7 @@
 import torch
 import torch.nn.functional as F
-from mapped_convolution.util import *
-from mapped_convolution.nn import *
-import _mapped_convolution_ext._mesh as mesh
-
+from tangent_images.util import *
+from tangent_images.nn import *
 import matplotlib.pyplot as plt
 from skimage import io, transform
 
@@ -23,19 +21,19 @@ write_openmvg_files = True
 # Compute necessary data
 # ----------------------------------------------
 # Generate the base icosphere
-icosphere = mesh.generate_icosphere(base_order)
+icosphere = generate_icosphere(base_order)
 
 # This might come in handy later
 num_faces = compute_num_faces(base_order)
 
 # After level 4, the vertex resolution comes pretty close to exactly halving at each subsequent order. This means we don't need to generate the sphere to compute the resolution. However, at lower levels of subdivision, we ought to compute the vertex resolution as it's not fixed
 if base_order < 5:
-    sampling_resolution = mesh.generate_icosphere(max(
+    sampling_resolution = generate_icosphere(max(
         0, base_order - 1)).get_vertex_resolution()
     if base_order == 0:
         sampling_resolution *= 2
 else:
-    sampling_resolution = mesh.generate_icosphere(5 - 1).get_vertex_resolution()
+    sampling_resolution = generate_icosphere(5 - 1).get_vertex_resolution()
     sampling_resolution /= (2**(base_order - 5))
 
 # Corners of tangent planes
@@ -48,12 +46,13 @@ corners = convert_spherical_to_3d(corners).squeeze()
 # Load and preprocess the image
 # ----------------------------------------------
 img = io.imread('earthmap4k.jpg').astype(np.float32)
-img = (255 * transform.rescale(img / 255,
-                               scale=scale_factor,
-                               order=1,
-                               anti_aliasing=True,
-                               mode='constant',
-                               multichannel=True)).astype(np.uint8)
+img = (255 * transform.rescale(
+    img / 255,
+    scale=scale_factor,
+    order=1,
+    anti_aliasing=True,
+    mode='constant',
+    multichannel=True)).astype(np.uint8)
 
 # Module to resample the image to UV textures
 resample_to_uv_layer = ResampleToUVTexture(img.shape[:2], base_order,
@@ -102,11 +101,12 @@ if save_ply:
     sample_map = image_to_sphere_resample_map(tmp_img.shape[-2:], icosphere)
     rgb_vertices = unresampler(tmp_img.flip(-2), sample_map).squeeze()
     icosphere.normalize_points()
-    write_ply('textured_sphere.ply',
-              icosphere.get_vertices().transpose(0, 1).numpy(),
-              rgb=rgb_vertices.cpu().numpy(),
-              faces=icosphere.get_all_face_vertex_indices().numpy(),
-              text=False)
+    write_ply(
+        'textured_sphere.ply',
+        icosphere.get_vertices().transpose(0, 1).numpy(),
+        rgb=rgb_vertices.cpu().numpy(),
+        faces=icosphere.get_all_face_vertex_indices().numpy(),
+        text=False)
 
     # Write 3D keypoints
     write_ply('kp_patch_method.ply', kp_3d.view(-1, 3).numpy().T)
@@ -130,14 +130,16 @@ if save_ply:
     write_ply('kp_visible.ply', kp_3d.view(-1, 3).numpy().T)
 
 if write_openmvg_files:
-    np.savetxt('patch_kp.feat',
-               patch_kp.numpy().astype(np.float32),
-               delimiter=' ',
-               fmt='%f')
-    np.savetxt('patch_desc.desc',
-               patch_desc.numpy().astype(np.uint32),
-               delimiter=' ',
-               fmt='%d')
+    np.savetxt(
+        'patch_kp.feat',
+        patch_kp.numpy().astype(np.float32),
+        delimiter=' ',
+        fmt='%f')
+    np.savetxt(
+        'patch_desc.desc',
+        patch_desc.numpy().astype(np.uint32),
+        delimiter=' ',
+        fmt='%d')
 
 # ----------------------------------------------
 # Compute SIFT descriptors on equirect image
@@ -152,14 +154,16 @@ if save_ply:
     write_ply('kp_equirect_method.ply', kp_3d.view(-1, 3).numpy().T)
 
 if write_openmvg_files:
-    np.savetxt('erp_kp.feat',
-               erp_kp.numpy().astype(np.float32),
-               delimiter=' ',
-               fmt='%f')
-    np.savetxt('erp_desc.desc',
-               erp_desc.numpy().astype(np.uint32),
-               delimiter=' ',
-               fmt='%d')
+    np.savetxt(
+        'erp_kp.feat',
+        erp_kp.numpy().astype(np.float32),
+        delimiter=' ',
+        fmt='%f')
+    np.savetxt(
+        'erp_desc.desc',
+        erp_desc.numpy().astype(np.uint32),
+        delimiter=' ',
+        fmt='%d')
 
 # ----------------------------------------------
 # Plot descriptors
@@ -170,10 +174,10 @@ fig, ax = plt.subplots(1, 1)
 # Convert the normalized quad UV data to 3D points
 patch_kp_on_img = convert_spherical_to_image(
     convert_3d_to_spherical(
-        convert_quad_uv_to_3d(
-            patch_quad_idx,
-            convert_quad_coord_to_uv((num_samples, num_samples),
-                                     patch_kp[:, :2]), corners)), img.shape[:2])
+        convert_quad_uv_to_3d(patch_quad_idx,
+                              convert_quad_coord_to_uv(
+                                  (num_samples, num_samples), patch_kp[:, :2]),
+                              corners)), img.shape[:2])
 
 # Set up the plot
 ax.set_aspect(1, adjustable='box')
