@@ -2,6 +2,11 @@
 HISTORY
 =======
 
+0.0.4 (2019-12-17)
+------------------
+* Updates to image ops utilities (and one tangent image utility)
+* Finished SIFT examples
+
 0.0.3 (2019-12-16)
 ------------------
 * Renamed some utility functions and added some others
