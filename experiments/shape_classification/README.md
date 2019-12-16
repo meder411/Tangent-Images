@@ -13,7 +13,7 @@ Tangent images allow us to achieve near state-of-the-art performance (12/2019) w
 
 
 ## Attribution
-The code for this experiment is modified from [UGSCNN](https://github.com/maxjiang93/ugscnn/tree/master/experiments/exp2_modelnet40). Our modifications are primarily to the model itself and to the dataloader, so that we can evaluate tangent images.
+The code for this experiment is modified from [UGSCNN](https://github.com/maxjiang93/ugscnn/tree/master/experiments/exp2_modelnet40). Our modifications are primarily to the model itself and the dataloader, so that we can evaluate tangent images.
 
 
 ## Dependencies
@@ -30,6 +30,6 @@ Run the experiment using the run script:
 
 ```
 chmod +x run.sh
-./run
+./run.sh
 ```
 The script will automatically download the data files if they do not already exist.
