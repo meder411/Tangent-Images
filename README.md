@@ -1,7 +1,7 @@
 # Tangent-Images
 Official repository of Tangent Images
 
-![Tangent Images](images/figure_1.png)
+![Tangent Images](images/figure_1.png | width=340)
 
 ## Dependencies
 
@@ -9,18 +9,18 @@ This repository is designed to be used with PyTorch. In its current form, it has
 
 #### Python
 
-    * PyTorch 1.3.1
-    * numpy
-    * matplotlib (plotting examples)
-    * scikit-image (io)
-    * plyfile (for saving pointclouds)
-    * visdom (training visualizations)
-    * OpenCV 3.4.2 (note that this version is required for proper SIFT detection)
+* PyTorch 1.3.1
+* numpy
+* matplotlib (plotting examples)
+* scikit-image (io)
+* plyfile (for saving pointclouds)
+* visdom (training visualizations)
+* OpenCV 3.4.2 (note that this version is required for proper SIFT detection)
 
 #### Other dependencies
 
-    * CGAL 4.11+ (the aptitude package version works)
-    * CUDA 10.1 (optional for PyTorch GPU support)
+* CGAL 4.11+ (the aptitude package version works)
+* CUDA 10.1 (optional for PyTorch GPU support)
 
 
 ## Installation
