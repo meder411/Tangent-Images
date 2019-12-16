@@ -1,7 +1,7 @@
 # Tangent-Images
 Official repository of Tangent Images
 
-![Tangent Images](images/figure_1.png | width=340)
+![Tangent Images](images/figure_1.png)
 
 ## Dependencies
 
