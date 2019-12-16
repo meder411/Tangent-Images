@@ -1,4 +1,4 @@
-## Distorted MNIST
+# Distorted MNIST
 
 ## Results
 
