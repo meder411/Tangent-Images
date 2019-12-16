@@ -13,21 +13,23 @@ Tangent images allow us to achieve near state-of-the-art performance (12/2019) w
 
 
 ## Attribution
-The code for this experiment is modified from [UGSCNN](https://github.com/maxjiang93/ugscnn/tree/master/experiments/exp2_modelnet40). Our modifications are primarily to the model itself and to the dataloader, so that we can evaluate tangent images. The documentation below is from the original repository.
+The code for this experiment is modified from [UGSCNN](https://github.com/maxjiang93/ugscnn/tree/master/experiments/exp2_modelnet40). Our modifications are primarily to the model itself and to the dataloader, so that we can evaluate tangent images.
 
----------------------
 
-### Dependencies
-The code below has the following dependencies that can be installed by conda and pip.
-```bash
+## Dependencies
+The code requires the following dependencies that can be installed using conda and pip.
+
+```
 conda install -c conda-forge rtree shapely  
 conda install -c conda-forge pyembree  
 pip install "trimesh[easy]"  
 ```
-### Instruction
-To run the experiment, execute the run script:
-```bash
+
+## Usage
+Run the experiment using the run script:
+
+```
 chmod +x run.sh
 ./run
 ```
-The script will automatically start downloading the data files if it does not already exist.
+The script will automatically download the data files if they do not already exist.
