@@ -6,9 +6,15 @@
 #ifndef CGAL_MESH_H_
 #define CGAL_MESH_H_
 
-#include <CGAL/Polygon_mesh_processing/measure.h>
+// Lazy.h included to avoid a bug in <CGAL/polygon_mesh_processing.h>
+// (https://github.com/CGAL/cgal/pull/2663)
+// This solves the problem so we can use the aptitude cgal-dev package.
+// This is unnecessary if using the most up-to-date header install from source.
+#include <CGAL/Lazy.h>
+// --------------
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
+#include <CGAL/polygon_mesh_processing.h>
 
 #include <boost/iterator/iterator_adaptor.hpp>
 
@@ -191,9 +197,7 @@ class TriangleMesh {
 };
 
 // Inline definitions
-SurfaceMesh &TriangleMesh::GetMesh() {
-  return this->_mesh;
-}
+SurfaceMesh &TriangleMesh::GetMesh() { return this->_mesh; }
 const size_t TriangleMesh::NumVertices() const {
   return this->_mesh.number_of_vertices();
 }
@@ -265,10 +269,9 @@ inline const TriangleMesh GenerateIcosahedralNet(const size_t order) {
       0.0,    4.5, h,   0.0,    1.0, -2 * h, 0.0, 2.0, -2 * h, 0.0, 3.0,
       -2 * h, 0.0, 4.0, -2 * h, 0.0, 4.5,    -h,  0.0, 5.0,    0.0, 0.0};
   std::vector<int64_t> face_indices = std::vector<int64_t>{
-      9, 8, 0,  12, 8,  4, 1,  13, 4, 14, 1,  6,  15, 6,  21,
-      2, 9, 7,  8,  9,  2, 2,  5,  8, 5,  4,  8,  4,  5,  10,
-      1, 4, 10, 10, 11, 1, 1,  11, 6, 20, 6,  11, 6,  20, 21,
-      3, 2, 7,  2,  16, 5, 17, 10, 5, 11, 10, 18, 19, 20, 11};
+      9, 8,  0, 12, 8,  4, 1, 13, 4, 14, 1, 6,  15, 6,  21, 2,  9,  7,  8,  9,
+      2, 2,  5, 8,  5,  4, 8, 4,  5, 10, 1, 4,  10, 10, 11, 1,  1,  11, 6,  20,
+      6, 11, 6, 20, 21, 3, 2, 7,  2, 16, 5, 17, 10, 5,  11, 10, 18, 19, 20, 11};
 
   TriangleMesh net(pts, face_indices);
   // net.Subdivide(order);
@@ -365,7 +368,7 @@ class MidpointSubdivisionMask {
   }
   void vertex_node(vertex_descriptor vd, Point &pt) {
     Point_ref S = get(vpm, vd);
-    pt          = Point(S[0], S[1], S[2]);
+    pt = Point(S[0], S[1], S[2]);
   }
   void border_node(halfedge_descriptor hd, Point &ept, Point &vpt) {
     this->edge_node(hd, ept);
@@ -421,9 +424,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
            &tangent_images::mesh::TriangleMesh::GetFaceBarycenters)
       .def("get_adjacent_face_indices_to_faces",
            &tangent_images::mesh::TriangleMesh::GetAdjacentFaceIndicesToFaces)
-      .def("get_adjacent_face_indices_to_vertices",
-           &tangent_images::mesh::TriangleMesh::
-               GetAdjacentFaceIndicesToVertices)
+      .def(
+          "get_adjacent_face_indices_to_vertices",
+          &tangent_images::mesh::TriangleMesh::GetAdjacentFaceIndicesToVertices)
       .def("get_adjacent_vertex_indices_to_vertices",
            &tangent_images::mesh::TriangleMesh::
                GetAdjacentVertexIndicesToVertices)
@@ -435,14 +438,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // Other functions
   m.def("generate_icosphere", &tangent_images::mesh::GenerateIcosphere)
       .def("generate_octosphere", &tangent_images::mesh::GenerateOctosphere)
-      .def("generate_image_grid_mesh",
-           &tangent_images::mesh::GenerateImageGrid)
+      .def("generate_image_grid_mesh", &tangent_images::mesh::GenerateImageGrid)
       .def("generate_cube", &tangent_images::mesh::GenerateCube)
       .def("generate_icosahedral_net",
            &tangent_images::mesh::GenerateIcosahedralNet)
-      .def(
-          "get_icosphere_convolution_operator",
-          &tangent_images::mesh::TriangleMesh::GetIcosphereConvolutionOperator)
+      .def("get_icosphere_convolution_operator",
+           &tangent_images::mesh::TriangleMesh::GetIcosphereConvolutionOperator)
       .def("get_face_tuples",
            &tangent_images::mesh::TriangleMesh::GetFaceTuples)
       .def("find_tangent_plane_intersections",
