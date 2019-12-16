@@ -16,3 +16,5 @@ build/
 *.ply
 *.png
 *.jpg
+*.obj
+*.mtl
