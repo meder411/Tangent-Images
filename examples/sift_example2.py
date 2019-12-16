@@ -35,10 +35,11 @@ def draw_keypoints(fname, img, keypoints, color='r', linewidth=1):
     line_vec = F.normalize(line_vec, dim=-1)
 
     lines = [
-        mlines.Line2D([kp[i, 0], kp[i, 0] + r[i] * line_vec[i, 0]],
-                      [kp[i, 1], kp[i, 1] + r[i] * line_vec[i, 1]],
-                      color=color,
-                      linewidth=linewidth) for i in range(kp.shape[0])
+        mlines.Line2D(
+            [kp[i, 0], kp[i, 0] + r[i] * line_vec[i, 0]],
+            [kp[i, 1], kp[i, 1] + r[i] * line_vec[i, 1]],
+            color=color,
+            linewidth=linewidth) for i in range(kp.shape[0])
     ]
 
     # Set up the plot
@@ -64,25 +65,24 @@ for sift_type in range(-1, 3):
     print('Sift type:', sift_type)
     img = io.imread('right-img.png')[..., :3]
     if scale < 1.0:
-        img = (255 * transform.rescale(img.astype(np.float32) / 255,
-                                       scale=scale,
-                                       order=1,
-                                       anti_aliasing=True,
-                                       mode='constant',
-                                       multichannel=True)).astype(np.uint8)
+        img = (255 * transform.rescale(
+            img.astype(np.float32) / 255,
+            scale=scale,
+            order=1,
+            anti_aliasing=True,
+            mode='constant',
+            multichannel=True)).astype(np.uint8)
 
     img = torch.from_numpy(img).permute(2, 0, 1)
 
     # If this is a patch run
     if sift_type >= 0:
-        resample_to_uv_layer, corners = get_tangent_plane_info(
+        resample_to_uv_layer, corners = get_tangent_image_info(
             sift_type, sample_level, img.shape[-2:])
         tex_image = resample_to_uv_layer(
             img.float().unsqueeze(0)).squeeze(0).byte()
-        kp = extract_sift_feats_patch(tex_image,
-                                      corners,
-                                      image_shape=img.shape[-2:],
-                                      crop_degree=30)
+        kp = extract_sift_feats_patch(
+            tex_image, corners, image_shape=img.shape[-2:], crop_degree=30)
     else:
         kp = extract_sift_feats_erp(img, crop_degree=30)
 

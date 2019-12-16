@@ -37,7 +37,7 @@ else:
     sampling_resolution /= (2**(base_order - 5))
 
 # Corners of tangent planes
-corners = tangent_plane_corners(icosphere, num_samples, num_samples,
+corners = tangent_image_corners(icosphere, num_samples, num_samples,
                                 sampling_resolution / num_samples,
                                 sampling_resolution / num_samples, 'face')
 corners = convert_spherical_to_3d(corners).squeeze()
