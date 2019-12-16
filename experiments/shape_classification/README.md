@@ -26,10 +26,18 @@ pip install "trimesh[easy]"
 ```
 
 ## Usage
-Run the experiment using the run script:
+Train a model using the training script:
 
 ```
-chmod +x run.sh
-./run.sh
+chmod +x train.sh
+./train.sh
 ```
-The script will automatically download the data files if they do not already exist.
+
+Test a trained model (e.g. the included `best.pkl`) with the test script:
+
+```
+chmod +x test.sh
+./test.sh
+```
+
+Both scripts will automatically download the data files if they do not already exist.
