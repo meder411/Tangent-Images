@@ -1,9 +1,9 @@
 import torch
 import cv2
+import math
 
 from .conversions import *
 import _tangent_images_ext._mesh as mesh
-import math
 
 
 def compute_sift_keypoints(img,
@@ -13,11 +13,14 @@ def compute_sift_keypoints(img,
                            edgeThreshold=10,
                            sigma=1.6):
     """
-    Expects H x W x C RGB image
+    Expects 3 x H x W torch tensor
 
     Returns [M x 4 (x, y, s, o), M x 128]
     """
+    # Convert to numpy and ensure it's a uint8
+    img = img.permute(1, 2, 0).byte().numpy()
 
+    # Initialize OpenCV SIFT detector
     sift = cv2.xfeatures2d.SIFT_create(nfeatures, nOctaveLayers,
                                        contrastThreshold, edgeThreshold, sigma)
 
@@ -31,8 +34,7 @@ def compute_sift_keypoints(img,
         desc = torch.from_numpy(desc)
         return torch.cat((coords, scale.unsqueeze(1), orientation.unsqueeze(1)),
                          -1), desc
-    else:
-        return None
+    return None
 
 
 def compute_visible_keypoints(kp_quad_idx, kp_details, kp_desc, quad_corners,
@@ -89,18 +91,21 @@ def render_keypoints(image_shape, kp_quad_idx, kp_details, kp_desc,
 def draw_keypoints(img, keypoints):
     """
     VISUALIZE KEYPOINTS
-    img: H x W x 3
+    img: 3 x H x W
     keypoints: N x 4
     """
     kp = [cv2.KeyPoint(k[0], k[1], k[2], math.degrees(k[3])) for k in keypoints]
     out_img = cv2.drawKeypoints(
-        img, kp, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        img.permute(1, 2, 0).numpy(),
+        kp,
+        None,
+        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-    return out_img
+    return torch.from_numpy(out_img).permute(2, 0, 1)
 
 
 def compute_crop(image_shape, crop_degree=0):
-    """Compute padding space"""
+    """Compute padding space in an equirectangular images"""
     crop_h = 0
     if crop_degree > 0:
         crop_h = image_shape[0] // (180 / crop_degree)
@@ -108,7 +113,17 @@ def compute_crop(image_shape, crop_degree=0):
     return crop_h
 
 
-def extract_sift_feats_patch(tex_image, corners, image_shape, crop_degree=0):
+def sift_tangent_images(tex_image, corners, image_shape, crop_degree=0):
+    """
+    Extracts only the visible SIFT features from a collection tangent image. That is, only returns the keypoints visible to a spherical camera at the center of the icosahedron.
+
+    tex_image: 3 x N x H x W
+    corners: N x 4 x 3 coordinates of tangent image corners in 3D
+    image_shape: (H, W) of equirectangular image that we render back to
+    crop_degree: [optional] scalar value in degrees dictating how much of input equirectangular image is 0-padding
+
+    returns [visible_kp, visible_desc] (M x 4, M x 128)
+    """
 
     # ----------------------------------------------
     # Compute SIFT descriptors for each patch
@@ -117,9 +132,7 @@ def extract_sift_feats_patch(tex_image, corners, image_shape, crop_degree=0):
     desc_list = []  # Stores keypoint descriptors
     quad_idx_list = []  # Stores quad index for each keypoint
     for i in range(tex_image.shape[1]):
-        # ipdb.set_trace()
-        kp_details = compute_sift_keypoints(tex_image[:, i, ...].permute(
-            1, 2, 0).numpy())
+        kp_details = compute_sift_keypoints(tex_image[:, i, ...])
 
         if kp_details is not None:
             kp = kp_details[0]
@@ -146,20 +159,23 @@ def extract_sift_feats_patch(tex_image, corners, image_shape, crop_degree=0):
     # Ignore keypoints along the stitching boundary
     mask = (visible_kp[:, 1] > crop_h) & (visible_kp[:, 1] <
                                           image_shape[0] - crop_h)
-    visible_kp = visible_kp[mask]
-    visible_desc = visible_desc[mask]
-    return visible_kp
+    visible_kp = visible_kp[mask]  # M x 4
+    visible_desc = visible_desc[mask]  # M x 128
+    return visible_kp, visible_desc
 
 
-def extract_sift_feats_erp(img, crop_degree=0):
+def sift_equirectangular(img, crop_degree=0):
     """
     img: torch style (C x H x W) torch tensor
+    crop_degree: [optional] scalar value in degrees dictating how much of input equirectangular image is 0-padding
+
+    returns [erp_kp, erp_desc] (M x 4, M x 128)
     """
 
     # ----------------------------------------------
     # Compute SIFT descriptors on equirect image
     # ----------------------------------------------
-    erp_kp_details = compute_sift_keypoints(img.permute(1, 2, 0).numpy())
+    erp_kp_details = compute_sift_keypoints(img)
     erp_kp = erp_kp_details[0]
     erp_desc = erp_kp_details[1]
 
@@ -171,4 +187,4 @@ def extract_sift_feats_erp(img, crop_degree=0):
     erp_kp = erp_kp[mask]
     erp_desc = erp_desc[mask]
 
-    return erp_kp
+    return erp_kp, erp_desc

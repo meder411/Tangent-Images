@@ -276,6 +276,36 @@ def equirectangular_to_tangent_images_resample_map(image_shape,
 # -----------------------------------------------------------------------------
 
 
+def equirectangular_to_sphere_resample_map(image_shape,
+                                           icosphere,
+                                           source='vertex'):
+    '''
+    Returns a resample map where each vertex (or face) of the provided <icosphere> has an associated real-valued pixel location in an equirectangular image of shape <image_shape>. Used for resampling from an image to a sphere.
+
+    image_shape: (H, W)
+    icosphere: an icosphere
+    source: {'face' or 'vertex'}
+    Returns 1 x {F,V} x 2 mapping in pixel coords (x, y) per mesh element
+    '''
+
+    # Get each face's barycenter in (lon, lat) format
+    if source == 'face':
+        samples = convert_3d_to_spherical(icosphere.get_face_barycenters())
+    elif source == 'vertex':
+        samples = convert_3d_to_spherical(icosphere.get_vertices())
+    else:
+        print('Invalid source ({})'.format(source))
+        exit()
+
+    # Get the mapping functions as (1, num_samples, 2)
+    sampling_map = convert_spherical_to_image(samples, image_shape).view(
+        1, -1, 2)
+    return sampling_map
+
+
+# -----------------------------------------------------------------------------
+
+
 class ResampleToUVTexture(nn.Module):
     '''
     A class that maps a B x C x H x W image to B x F x C x P x P texture patches. These can be though of as a stack of F C x P x P patches. The memory layout is B x F x C x P x P in order to leverage grouped convolutions (groups = F).
