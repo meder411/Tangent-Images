@@ -37,4 +37,3 @@ python train.py \
 --image_shape 64 128 \
 --base_order 0 \
 --sample_order 5
-# --rand_rot \

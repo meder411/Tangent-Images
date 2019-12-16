@@ -191,6 +191,7 @@ def main(log_dir, model_path, decay, data_dir, dataset, partition, batch_size,
                 return lr * learning_rate
         return lrs[-1] * learning_rate
 
+    best_acc = 0.0
     for epoch in range(epochs):
         if decay:
             scheduler.step()
@@ -224,8 +225,9 @@ def main(log_dir, model_path, decay, data_dir, dataset, partition, batch_size,
             total_loss += loss
             total_correct += correct
             count += 1
+        acc = total_correct / len(test_set)
         logger.info('[Epoch {} Test] <LOSS>={:.2} <ACC>={:2}'.format(
-            epoch, total_loss / (count + 1), total_correct / len(test_set)))
+            epoch, total_loss / (count + 1), acc))
 
         # save the state
         state_dict_no_sparse = [
@@ -234,6 +236,13 @@ def main(log_dir, model_path, decay, data_dir, dataset, partition, batch_size,
         ]
         state_dict_no_sparse = OrderedDict(state_dict_no_sparse)
         torch.save(state_dict_no_sparse, os.path.join(log_dir, "state.pkl"))
+
+        # save the best model
+        if acc > best_acc:
+            shutil.copy2(
+                os.path.join(log_dir, "state.pkl"),
+                os.path.join(log_dir, "best.pkl"))
+            best_acc = acc
 
 
 if __name__ == '__main__':
