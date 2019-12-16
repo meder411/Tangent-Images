@@ -1,6 +1,4 @@
 # Tangent-Images
-Official repository of Tangent Images
-
 ![Tangent Images](images/figure_1.png)
 
 ## Dependencies
@@ -36,11 +34,11 @@ sudo apt install libcgal-dev
 
 #### Installing tangent-images
 
- 1. Make sure you have activated your Conda environment or are otherwise using the desired Python environment.
+ 1. Make sure you have activated your Conda environment or are otherwise using the desired Python environment
  2. Navigate to `<top-level>/package`
  3. `python setup.py install`
 
-You should be able to test if the installation was successful by running the example scrips in [examples](./examples)
+You should be able to test if the installation was successful by running the example scripts in [examples](./examples)
 
 ## Attribution
 

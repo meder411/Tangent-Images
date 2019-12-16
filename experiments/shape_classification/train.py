@@ -49,26 +49,11 @@ def main(log_dir, model_path, decay, data_dir, dataset, partition, batch_size,
     num_classes = int(dataset[-2:])
     model = mod.Model(num_classes, feat=feat)
     model = nn.DataParallel(model)
-    model.cuda()
+    model = model.cuda()
 
     if pretrain:
         pretrained_dict = torch.load(pretrain)
-
-        def load_my_state_dict(self, state_dict, exclude='out_layer'):
-            from torch.nn.parameter import Parameter
-
-            own_state = self.state_dict()
-            for name, param in state_dict.items():
-                if name not in own_state:
-                    continue
-                if exclude in name:
-                    continue
-                if isinstance(param, Parameter):
-                    # backwards compatibility for serialized parameters
-                    param = param.data
-                own_state[name].copy_(param)
-
-        load_my_state_dict(model, pretrained_dict)
+        load_partial_model(model, pretrained_dict)
 
     logger.info('{} parameters in total'.format(
         sum(x.numel() for x in model.parameters())))
