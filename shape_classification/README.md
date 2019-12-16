@@ -7,8 +7,8 @@ Tangent images allow us to achieve near state-of-the-art performance (12/2019) w
 | Method | Filter | Acc. |
 |--------|--------|------|
 | Cohen *et al.* [9] | Spherical Correlation | 85.0%  |
-| Esteves *et al.* [13] | Spherical Correlation | 88.9%  |
-| Jiang *et al.* [17] | Mesh | 90.5%  |
+| Esteves *et al.* [13] | Spectral Parameterization | 88.9%  |
+| Jiang *et al.* [17] | MeshConv | 90.5%  |
 | **Ours** | **2D Convolution** | **89.1%**  |
 
 
