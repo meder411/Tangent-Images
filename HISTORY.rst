@@ -2,6 +2,12 @@
 HISTORY
 =======
 
+0.0.5 (2019-12-17)
+------------------
+* Results for ShapeNet
+* Add distorted MNIST experiment
+* Main README file
+
 0.0.4 (2019-12-17)
 ------------------
 * Updates to image ops utilities (and one tangent image utility)

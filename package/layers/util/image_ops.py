@@ -90,7 +90,7 @@ def render_keypoints(image_shape, kp_quad_idx, kp_details, kp_desc,
 
 def draw_keypoints(img, keypoints):
     """
-    VISUALIZE KEYPOINTS
+    Visualize keypoints
     img: 3 x H x W
     keypoints: N x 4
     """

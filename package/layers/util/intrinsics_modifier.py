@@ -7,7 +7,7 @@ from tangent_images.nn import Unresample
 
 
 class IntrinsicsModifier(nn.Module):
-    """Resamples an image to a difference intrinsics matrix"""
+    """Resamples an image to a different intrinsics matrix"""
 
     def __init__(self,
                  out_fov_x,
