@@ -1,4 +1,8 @@
 import torch.nn as nn
+import torch.nn.functional as F
+
+import math
+
 from tangent_images.nn import Unresample, Resample, ResampleFromUV
 from .conversions import *
 from .grids import *
@@ -32,6 +36,17 @@ def compute_num_vertices(order):
 def compute_num_faces(order):
     '''Computes the number of vertices for a given icosphere order'''
     return 20 * (4**order)
+
+
+# -----------------------------------------------------------------------------
+
+
+def compute_num_samples(base_order, sample_order, kernel_size=None):
+    '''Computes the number of samples for a tangent image dimension. If kernel size is provided, it returns the tangent image dimension with padding equal to floor(0.5 * kernel_size)'''
+    num_samples = 2**(sample_order - base_order)
+    if kernel_size is not None:
+        num_samples += 2 * (kernel_size // 2)
+    return num_samples
 
 
 # -----------------------------------------------------------------------------
@@ -154,7 +169,7 @@ def gnomonic_kernel_from_sphere(icosphere,
 # -----------------------------------------------------------------------------
 
 
-def tangent_plane_corners(icosphere, kh, kw, res_lat, res_lon, source='vertex'):
+def tangent_image_corners(icosphere, kh, kw, res_lat, res_lon, source='vertex'):
     '''
     Returns a map of gnomonic filters with shape (kh, kw) and spatial resolution (res_lon, res_lat) centered at each vertex (or face) of the provided icosphere. Sample locations are given by spherical coordinates
 
@@ -188,8 +203,26 @@ def tangent_plane_corners(icosphere, kh, kw, res_lat, res_lon, source='vertex'):
 # -----------------------------------------------------------------------------
 
 
-def image_to_tangent_planes_resample_map(image_shape, base_order, sample_order,
-                                         kernel_size):
+def compute_tangent_image_angular_resolution(corners):
+    '''
+    corners: num_tangent_images x 4 x 3 (3d points)
+    '''
+    A = F.normalize(corners[..., 0, :], dim=-1)
+    B = F.normalize(corners[..., 1, :], dim=-1)
+    C = F.normalize(corners[..., 2, :], dim=-1)
+    D = F.normalize(corners[..., 3, :], dim=-1)
+    fov_x = (torch.acos((A * B).sum(-1)) * 180 / math.pi).mean()
+    fov_y = (torch.acos((A * C).sum(-1)) * 180 / math.pi).mean()
+
+    return fov_x, fov_y
+
+
+# -----------------------------------------------------------------------------
+
+
+def tangent_images_spherical_sample_map(base_order,
+                                        sample_order,
+                                        kernel_size=None):
 
     assert sample_order >= base_order, 'Sample order must be greater than or equal to the base order ({} <{ })'.format(
         sample_order, base_order)
@@ -197,21 +230,13 @@ def image_to_tangent_planes_resample_map(image_shape, base_order, sample_order,
     # Generate the base icosphere
     base_sphere = mesh.generate_icosphere(base_order)
 
-    # After level 4, the vertex resolution comes pretty close to exactly halving at each subsequent order. This means we don't need to generate the sphere to compute the resolution. However, at lower levels of subdivision, we ought to compute the vertex resolution as it's not fixed
-    if base_order < 5:
-        sampling_resolution = mesh.generate_icosphere(max(
-            0, base_order - 1)).get_angular_resolution()
-        if base_order == 0:
-            sampling_resolution *= 2
-
-    else:
-        sampling_resolution = mesh.generate_icosphere(
-            5 - 1).get_angular_resolution()
-        sampling_resolution /= (2**(base_order - 5))
+    # Get sampling resolution
+    sampling_resolution = get_sampling_resolution(base_order)
 
     # Determine how many samples to grab in each direction. Kernel size is used for grabbing padding.
-    num_samples = 2**(sample_order - base_order)
-    num_samples_with_pad = num_samples + 2 * (kernel_size // 2)
+    num_samples = compute_num_samples(base_order, sample_order)
+    num_samples_with_pad = compute_num_samples(base_order, sample_order,
+                                               kernel_size)
 
     # Generate spherical sample map s.t. each face is projected onto a tangent grid of size (num_samples x num_samples) and the samples are spaced (sampling_resolution/num_samples x sampling_resolution/num_samples apart)
     spherical_sample_map = gnomonic_kernel_from_sphere(
@@ -221,6 +246,24 @@ def image_to_tangent_planes_resample_map(image_shape, base_order, sample_order,
         sampling_resolution / num_samples,
         sampling_resolution / num_samples,
         source='face')
+
+    return spherical_sample_map
+
+
+# -----------------------------------------------------------------------------
+
+
+def equirectangular_to_tangent_images_resample_map(image_shape,
+                                                   base_order,
+                                                   sample_order,
+                                                   kernel_size=None):
+
+    assert sample_order >= base_order, 'Sample order must be greater than or equal to the base order ({} <{ })'.format(
+        sample_order, base_order)
+
+    # Generate the spherical sample map
+    spherical_sample_map = tangent_images_spherical_sample_map(
+        base_order, sample_order, kernel_size)
 
     # Produces a sample map to turn the image into tangent planes
     image_sample_map = convert_spherical_to_image(spherical_sample_map,
@@ -249,16 +292,17 @@ class ResampleToUVTexture(nn.Module):
         super(ResampleToUVTexture, self).__init__()
 
         # Sample map
-        self.register_buffer(
-            'sample_map',
-            image_to_tangent_planes_resample_map(image_shape, base_order,
-                                                 sample_order, kernel_size))
+        self.register_buffer('sample_map',
+                             equirectangular_to_tangent_images_resample_map(
+                                 image_shape, base_order, sample_order,
+                                 kernel_size))
 
         # Resampling layer
         self.layer = Unresample(interpolation)
 
         # Dimension of square tangent grid
-        self.grid_dim = 2**(sample_order - base_order) + 2 * (kernel_size // 2)
+        self.grid_dim = compute_num_samples(base_order, sample_order,
+                                            kernel_size)
 
     def forward(self, x):
         '''
@@ -272,8 +316,8 @@ class ResampleToUVTexture(nn.Module):
         planes = self.layer(x, self.sample_map)
 
         # Reshape to a separate each patch
-        B, C, F = planes.shape[:3]
-        return planes.view(B, C, F, self.grid_dim, self.grid_dim)
+        B, C, N = planes.shape[:3]
+        return planes.view(B, C, N, self.grid_dim, self.grid_dim)
 
 
 # -----------------------------------------------------------------------------
@@ -296,11 +340,11 @@ class ResampleFromUVTexture(nn.Module):
         icosphere = mesh.generate_icosphere(base_order)
 
         # Compute number of samples and sampling resolution based on base and sample orders
-        num_samples = 2**(sample_order - base_order)
+        num_samples = compute_num_samples(base_order, sample_order)
         sampling_resolution = get_sampling_resolution(base_order)
 
         # Find the boundaries of the tangest planes in 3D
-        corners = tangent_plane_corners(icosphere, num_samples, num_samples,
+        corners = tangent_image_corners(icosphere, num_samples, num_samples,
                                         sampling_resolution / num_samples,
                                         sampling_resolution / num_samples,
                                         'face')
@@ -341,9 +385,10 @@ class ResampleFromUVTexture(nn.Module):
 # -----------------------------------------------------------------------------
 
 
-def get_tangent_plane_info(base_order, sample_order, img_shape):
+def get_tangent_image_info(base_order, sample_order, img_shape):
+
     # Patch size
-    num_samples = 2**(sample_order - base_order)
+    num_samples = compute_num_samples(base_order, sample_order)
 
     # ----------------------------------------------
     # Compute necessary data
@@ -358,7 +403,7 @@ def get_tangent_plane_info(base_order, sample_order, img_shape):
     sampling_resolution = get_sampling_resolution(base_order)
 
     # Corners of tangent planes in 3D coordinates
-    corners = tangent_plane_corners(icosphere, num_samples, num_samples,
+    corners = tangent_image_corners(icosphere, num_samples, num_samples,
                                     sampling_resolution / num_samples,
                                     sampling_resolution / num_samples, 'face')
     corners = convert_spherical_to_3d(corners).squeeze()
