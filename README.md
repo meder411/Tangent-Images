@@ -40,6 +40,10 @@ sudo apt install libcgal-dev
 
 You should be able to test if the installation was successful by running the example scripts in [examples](./examples)
 
+## Experiments
+
+All experiments are included in the [experiments](./experiments) folder. Each experiment subdirectory has a README file explaining how to setup and run each experiments. Where relevant, we have included the pre-trained models corresponding to our published results.
+
 ## Attribution
 
 If you find this repository useful for your own work, please make sure to cite our paper:
