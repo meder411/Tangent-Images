@@ -1,6 +1,6 @@
 ## 3D Shape Classification on [ModelNet40](https://modelnet.cs.princeton.edu/)
 
-## Results
+### Results
 
 Tangent images allow us to achieve near state-of-the-art performance (12/2019) without any specialized filters.
 
@@ -12,11 +12,11 @@ Tangent images allow us to achieve near state-of-the-art performance (12/2019) w
 | **Ours** | **2D Convolution** | **89.1%**  |
 
 
-## Attribution
+### Attribution
 The code for this experiment is modified from [UGSCNN](https://github.com/maxjiang93/ugscnn/tree/master/experiments/exp2_modelnet40). Our modifications are primarily to the model itself and the dataloader, so that we can evaluate tangent images.
 
 
-## Dependencies
+### Dependencies
 The code requires the following dependencies that can be installed using conda and pip.
 
 ```
@@ -25,7 +25,7 @@ conda install -c conda-forge pyembree
 pip install "trimesh[easy]"  
 ```
 
-## Usage
+### Usage
 Train a model using the training script:
 
 ```
