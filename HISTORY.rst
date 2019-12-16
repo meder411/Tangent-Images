@@ -2,6 +2,11 @@
 HISTORY
 =======
 
+0.0.3 (2019-12-16)
+------------------
+* Renamed some utility functions and added some others
+* Finished tangent image generation examples
+
 0.0.2 (2019-12-14)
 ------------------
 * Shape classification experiment
