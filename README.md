@@ -1,5 +1,5 @@
-# Tangent-Images
-![Tangent Images](images/figure_1.png)
+# Tangent Images for Mitigating Spherical Distortion
+![Tangent Images](./images/figure_1.png)
 
 ## Dependencies
 
@@ -42,7 +42,7 @@ You should be able to test if the installation was successful by running the exa
 
 ## Experiments
 
-All experiments are included in the [experiments](./experiments) folder. Each experiment subdirectory has a README file explaining how to setup and run each experiments. Where relevant, we have included the pre-trained models corresponding to our published results.
+All experiments are included in the [experiments](./experiments) folder. Each experiment subdirectory has a README file explaining how to setup and run each experiments. Where relevant, we have included the pre-trained models corresponding to our published results. Note that both the transfer learning and semantic segmentation experiments are in [`experiments/semantic_segmentation`](experiments/semantic_segmentation).
 
 ## Attribution
 
