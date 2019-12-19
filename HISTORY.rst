@@ -2,6 +2,10 @@
 HISTORY
 =======
 
+0.0.7 (2019-12-19)
+------------------
+* Moved MNIST plot to figures directory
+
 0.0.6 (2019-12-19)
 ------------------
 * Moved semantic segmentation to dev for now
