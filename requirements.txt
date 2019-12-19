@@ -3,6 +3,6 @@ matplotlib
 scikit-image
 plyfile
 visdom
-pytorch=1.2
+pytorch
 opencv=3.4.2
 CGAL

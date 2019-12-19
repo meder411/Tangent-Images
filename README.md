@@ -44,6 +44,8 @@ You should be able to test if the installation was successful by running the exa
 
 All experiments are included in the [experiments](./experiments) folder. Each experiment subdirectory has a README file explaining how to setup and run each experiments. Where relevant, we have included the pre-trained models corresponding to our published results. Note that both the transfer learning and semantic segmentation experiments are in [`experiments/semantic_segmentation`](experiments/semantic_segmentation).
 
+**TODO**: Semantic segmentation, transfer learning, and SIFT experiments forthcoming.
+
 ## Attribution
 
 If you find this repository useful for your own work, please make sure to cite our paper:
