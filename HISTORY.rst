@@ -2,6 +2,11 @@
 HISTORY
 =======
 
+0.0.6 (2019-12-19)
+------------------
+* Moved semantic segmentation to dev for now
+* Added figure generation code
+
 0.0.5 (2019-12-17)
 ------------------
 * Results for ShapeNet
