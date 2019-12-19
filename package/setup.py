@@ -56,7 +56,7 @@ def extension(name,
 
 setup(
     name='Tangent Images',
-    version='0.0.6',
+    version='0.0.7',
     author='Marc Eder',
     author_email='meder@cs.unc.edu',
     description='A PyTorch module for tangent_images',
