@@ -12,7 +12,7 @@ import os
 base_order = 1  # Base sphere resolution
 sample_order = 10  # Determines sample resolution (10 = 2048 x 4096)
 scale_factor = 1.0  # How much to scale input equirectangular image by
-save_ply = False  # Whether to save the PLY visualizations too
+save_ply = True  # Whether to save the PLY visualizations too
 
 # ----------------------------------------------
 # Compute necessary data
@@ -24,7 +24,7 @@ corners = tangent_image_corners(base_order, sample_order)
 # Load and preprocess the image
 # ----------------------------------------------
 os.makedirs('outputs', exist_ok=True)
-img = load_torch_img('inputs/earthmap4k.jpg', True).float()
+img = load_torch_img('inputs/stanford-example2.png')[:3, ...].float()
 img = F.interpolate(
     img.unsqueeze(0),
     scale_factor=scale_factor,
@@ -92,11 +92,10 @@ ax.set_aspect(1, adjustable='box')
 ax.imshow(img)
 ax.get_xaxis().set_ticks([])
 ax.get_yaxis().set_ticks([])
-# import ipdb;ipdb.set_trace()
 ax.plot(erp_kp[:, 0], erp_kp[:, 1], 'r.', markersize=0.7)
-# tangent_image_kp[(tangent_image_kp[:, [0]] >= img.shape[-2] - 1
-#                   ).expand_as(tangent_image_kp)] = float('nan')
-# ax.plot(tangent_image_kp[:, 0], tangent_image_kp[:, 1], 'b.', markersize=0.7)
+tangent_image_kp[(tangent_image_kp[:, [0]] >= img.shape[-2] - 1
+                  ).expand_as(tangent_image_kp)] = float('nan')
+ax.plot(tangent_image_kp[:, 0], tangent_image_kp[:, 1], 'b.', markersize=0.7)
 plt.axis('off')
 
 fig.savefig(

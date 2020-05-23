@@ -6,7 +6,7 @@ This directory contains scripts to generate tangent images, demo some non-deep l
 
 ![Canny edge detection](../images/canny.png)
 
-* **[compare_sift_keypoints.py](./compare_sift_keypoints.py)**: Detects SIFT keypoints on both an equirectangular image and tangent images and visualizes a comparison between them.
+* **[compare_sift_keypoints.py](./compare_sift_keypoints.py)**: Detects SIFT keypoints on both an equirectangular image (red) and tangent images (blue) and visualizes a comparison between them.
 
 ![SIFT keypoints](../images/sift.png)
 
