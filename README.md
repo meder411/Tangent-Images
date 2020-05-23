@@ -10,7 +10,7 @@ The linked paper is the arXiv version, which we have updated with additional exp
 
 ## Dependencies
 
-This repository is designed to be used with PyTorch. This code requires the installation of my Spherical Distortion Package, which is submoduled in this repository. [Installation instructions and/or a Dockerfile can be found here](https://github.com/meder411/spherical-package).
+This repository is designed to be used with PyTorch. This code requires the installation of my Spherical Distortion Package, [which can be found here](https://github.com/meder411/spherical-package). Installation instructions are available in the linked repo.
 
 You should be able to test if the installation was successful by running the example scripts in [examples](./examples).
 
