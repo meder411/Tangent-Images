@@ -4,11 +4,11 @@ This directory contains scripts to generate tangent images, demo some non-deep l
 
 * **[canny_edge_detection.py](./canny_edge_detection.py)**: Demonstrates the low-distortion benefits of tangent images for low-level tasks (specifically Canny edge detection)
 
-![Canny edge detection](../images/canny.gif)
+![Canny edge detection](../images/canny.png)
 
 * **[compare_sift_keypoints.py](./compare_sift_keypoints.py)**: Detects SIFT keypoints on both an equirectangular image and tangent images and visualizes a comparison between them.
 
-![SIFT keypoints](../images/sift.gif)
+![SIFT keypoints](../images/sift.png)
 
 * **[compute_angular_resolution.py](./compute_angular_resolution.py)**: Prints the FOV and angular resolution at each base level for the provided input resolution.
 * **[create_tangent_image_obj.py](./create_tangent_image_obj.py)**: Writes an OBJ file of tangent images textured with the data from an equirectangular image
