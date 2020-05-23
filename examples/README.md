@@ -1,6 +1,6 @@
 # Examples
 
-This directory contains scripts to generate tangent images and detect SIFT keypoints on them. These example scripts should help clarify how to use this library.
+This directory contains scripts to generate tangent images, demo some non-deep learning applications, and highlight some other functionality and analysis. These example scripts should help clarify how to use this library.
 
 * **canny_edge_detection.py**: Demonstrates the low-distortion benefits of tangent images for low-level tasks (specifically Canny edge detection)
 * **compare_sift_keypoints.py**: Detects SIFT keypoints on both an equirectangular image and tangent images and visualizes a comparison between them.
