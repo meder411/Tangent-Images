@@ -1,0 +1,14 @@
+DATASET: 'synthia'
+DATA_FORMAT: 'data'
+DATA_ROOT: ''
+BATCH_SIZE_PER_GPU: 8
+FOV: 45
+DIM: 64
+NORMALIZATION_STATS: 'synthia'
+LABEL_WEIGHT: 'synthia-none'
+MODEL_TYPE: 'hexunet'
+EXPERIMENT_NAME: 'transfer-synthia-data-dim64'
+LR: 0.0001
+VISDOM:
+  SERVER: ''
+  VIZ_FREQ: 50

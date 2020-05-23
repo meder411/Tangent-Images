@@ -1,0 +1,20 @@
+DATASET: 'stanford'
+DATA_ROOT: ''
+DATA_FORMAT: 'data'
+USE_DEPTH: True
+DROP_UNKNOWN: True
+MODEL_TYPE: 'resnet101'
+LABEL_WEIGHT: 'stanford-ours'
+NORMALIZATION_STATS: 'ugscnn'
+BATCH_SIZE_PER_GPU: 4
+NUM_EPOCHS: 10
+FOV: 45
+DIM: 128
+LR: 0.00001
+LOAD_WEIGHTS_ONLY: True
+EXPERIMENT_NAME: 'transfer-stanford-finetune-data-fold1'
+FOLD: 1
+MODEL_PATH: ''
+VISDOM:
+  SERVER: ''
+  VIZ_FREQ: 50

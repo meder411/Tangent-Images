@@ -1,0 +1,33 @@
+# Ignore all compiled Python files
+__pycache__
+
+# Ignore all build files
+build
+dist
+*.egg-info/
+
+# Ignore specific file types
+*.ply
+*.obj
+*.mtl
+*.bin
+*.json
+*.jpg
+*.png
+*.pdf
+*.tiff
+*.pth
+
+# Ignore pytest cache
+.pytest_cache
+
+# Ignore clang stuff
+*clang*
+
+# Ignore bumpversion stuff
+.bumpversion.cfg
+
+# Ignore heavy checkpoints, results, and intermediate files
+results
+checkpoints
+files
