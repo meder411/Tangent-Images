@@ -10,7 +10,7 @@ The linked paper is the arXiv version, which we have updated with additional exp
 
 ## Dependencies
 
-This repository is designed to be used with PyTorch. This code requires the installation of my Spherical Distortion Package, [which can be found here](https://github.com/meder411/spherical-package). Installation instructions are available in the linked repo.
+This repository is designed to be used with PyTorch. This code requires the installation of my Spherical Distortion Package, [which can be found here](https://github.com/meder411/spherical-package). Installation instructions are available in the linked repository.
 
 You should be able to test if the installation was successful by running the example scripts in [examples](./examples).
 
@@ -22,7 +22,7 @@ In the [examples](./examples) directory, we have provided some basic examples to
 
 ## Experiments
 
-All experiments are included in the [experiments](./experiments) folder. Each experiment subdirectory has a README file explaining how to setup and run each experiment. Where relevant, we have included the pre-trained models corresponding to our published results.
+All experiments are included in the [experiments](./experiments) folder. Each experiment subdirectory has a README file explaining how to setup and run each experiment. Where relevant, we have included the pre-trained models corresponding to our published results. Note that the [`semantic_segmentation`](./experiments/semantic_segmentation) directory contains both our standard semantic segmentation experiments as well as the network transfer experiments.
 
 
 ## Attribution
