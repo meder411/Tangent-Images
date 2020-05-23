@@ -1,5 +1,5 @@
 # Tangent Images for Mitigating Spherical Distortion
-**Version: 0.0.0**
+**Version: 1.0.0**
 
 ![Tangent images](./images/tangent-images.gif)
 
