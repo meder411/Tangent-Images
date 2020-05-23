@@ -1,6 +1,7 @@
 # Tangent Images for Mitigating Spherical Distortion
 **Version: 1.0.0**
-![Tangent Images](./images/figure_1.png)
+![Creating tangent images](./images/tangent-images.png)
+![Tangent images](./images/tangent-images.gif)
 
 This repository contains the code corresponding to our CVPR 2020 paper: [Tangent Images for Mitigating Spherical Distortion](https://arxiv.org/abs/1912.09390). 
 
