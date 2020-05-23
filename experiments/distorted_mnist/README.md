@@ -4,7 +4,7 @@
 
 Adding pincushion distortion to MNIST digits reduces the accuracy of the network fairly quickly.
 
-![MNIST distortion plot](./figures/distorted_mnist.png)
+![MNIST distortion plot](../images/distorted_mnist.png)
 
 ## Usage
 
