@@ -52,7 +52,7 @@ def build_dataset(cfg, is_train=True):
     elif cfg.DATASET == 'stanford':
         fold = cfg.FOLD
         file_name = 'train.txt' if is_train else 'test.txt'
-        file_list = os.path.join(cfg.DATA_ROOT, 'data_lists', cfg.DATA_FORMAT,
+        file_list = os.path.join('stanford-data-lists', cfg.DATA_FORMAT,
                                  'fold{}'.format(fold), file_name)
 
         dataset = StanfordDataset(
