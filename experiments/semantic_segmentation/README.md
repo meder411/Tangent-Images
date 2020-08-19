@@ -41,9 +41,9 @@ Baseline config files for all experiments are located in the [configs/train](./c
 
 Below is a table associating each config with an experiment from the updated arXiv version of paper. Here's some quick shorthand to understand:
 
-`d###`: Trained on camera-normalized perspective images with a square dimension of ### pixels (e.g. `d128`)
-`b#`: Base level of the tangent images used (e.g. `b1`)
-`s#`: Input resolution level of spherical images in terms of icosahedral level (e.g. `s10`)
+* `d###`: Trained on camera-normalized perspective images with a square dimension of ### pixels (e.g. `d128`)
+* `b#`: Base level of the tangent images used (e.g. `b1`)
+* `s#`: Input resolution level of spherical images in terms of icosahedral level (e.g. `s10`)
 
 For any Stanford dataset experiment, the provided configs are preset to Fold 1 of the dataset. You will need to change the configs manually to run other folds.
 
