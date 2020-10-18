@@ -30,10 +30,11 @@ All experiments are included in the [experiments](./experiments) folder. Each ex
 If you find this repository useful for your own work, please make sure to cite our paper:
 
 ```
-@article{eder2019tangent,
-    title={Tangent Images for Mitigating Spherical Distortion},
-    author={Marc Eder and Mykhailo Shvets and John Lim and Jan-Michael Frahm},
-    eprint={arXiv:1912.09390},
-    year={2019}
+@InProceedings{Eder_2020_CVPR,
+    author = {Eder, Marc and Shvets, Mykhailo and Lim, John and Frahm, Jan-Michael},
+    title = {Tangent Images for Mitigating Spherical Distortion},
+    booktitle = {The IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month = {June},
+    year = {2020}
 }
 ```

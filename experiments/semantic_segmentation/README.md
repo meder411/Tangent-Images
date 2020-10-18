@@ -8,7 +8,7 @@ To run these experiments, you will first need to download the Stanford 2D-3D-S d
 
 Information for downloading the Stanford dataset [can be found here](http://buildingparser.stanford.edu/dataset.html#Download)
 
-For SYNTHIA training, you need to download the `SYNTHIA-SEQS-01(02,04,05,06)-SUMMER` packages from the SYNTHIA VIDEO SEQUENCES subset. These [can be downloaded here](http://synthia-dataset.net/downloads/). OmniSYNTHIA is derived from this same subset. Code to generate OmniSYNTHIA images from the downloaded SYNTHIA data can be found here.
+For SYNTHIA training, you need to download the `SYNTHIA-SEQS-01(02,04,05,06)-SUMMER` packages from the SYNTHIA VIDEO SEQUENCES subset. These [can be downloaded here](http://synthia-dataset.net/downloads/). OmniSYNTHIA is derived from this same subset. Code to generate OmniSYNTHIA images from the downloaded SYNTHIA data can be found by contacting the authors of [Orientation-aware Semantic Segmentation on Icosahedron Spheres](https://arxiv.org/abs/1907.12849). I will do my best to port their MATLAB code to Python and push it to this repo, but it may be a little while until then (see [this issue](https://github.com/meder411/Tangent-Images/issues/5)).
 
 ## Running this code
 
@@ -41,9 +41,9 @@ Baseline config files for all experiments are located in the [configs/train](./c
 
 Below is a table associating each config with an experiment from the updated arXiv version of paper. Here's some quick shorthand to understand:
 
-`d###`: Trained on camera-normalized perspective images with a square dimension of ### pixels (e.g. `d128`)
-`b#`: Base level of the tangent images used (e.g. `b1`)
-`s#`: Input resolution level of spherical images in terms of icosahedral level (e.g. `s10`)
+* `d###`: Trained on camera-normalized perspective images with a square dimension of ### pixels (e.g. `d128`)
+* `b#`: Base level of the tangent images used (e.g. `b1`)
+* `s#`: Input resolution level of spherical images in terms of icosahedral level (e.g. `s10`)
 
 For any Stanford dataset experiment, the provided configs are preset to Fold 1 of the dataset. You will need to change the configs manually to run other folds.
 
