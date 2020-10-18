@@ -12,7 +12,7 @@ import os
 base_order = 1  # Base sphere resolution
 sample_order = 10  # Determines sample resolution (10 = 2048 x 4096)
 scale_factor = 1.0  # How much to scale input equirectangular image by
-save_ply = True  # Whether to save the PLY visualizations too
+save_ply = False  # Whether to save the PLY visualizations too
 
 # ----------------------------------------------
 # Compute necessary data
@@ -25,12 +25,11 @@ corners = tangent_image_corners(base_order, sample_order)
 # ----------------------------------------------
 os.makedirs('outputs', exist_ok=True)
 img = load_torch_img('inputs/stanford-example2.png')[:3, ...].float()
-img = F.interpolate(
-    img.unsqueeze(0),
-    scale_factor=scale_factor,
-    mode='bilinear',
-    align_corners=False,
-    recompute_scale_factor=True).squeeze(0)
+img = F.interpolate(img.unsqueeze(0),
+                    scale_factor=scale_factor,
+                    mode='bilinear',
+                    align_corners=False,
+                    recompute_scale_factor=True).squeeze(0)
 
 # Resample the image to N tangent images (out: 3 x N x H x W)
 tex_image = create_tangent_images(img, base_order, sample_order).byte()
@@ -43,18 +42,20 @@ if save_ply:
     rgb_vertices = unresample(img, sample_map,
                               InterpolationType.BISPHERICAL).squeeze()
     viz_icosphere.normalize_points()
-    write_ply(
-        'outputs/textured_sphere.ply',
-        viz_icosphere.get_vertices().transpose(0, 1).numpy(),
-        rgb=rgb_vertices.cpu().numpy(),
-        faces=viz_icosphere.get_all_face_vertex_indices().T.numpy(),
-        text=False)
+    write_ply('outputs/textured_sphere.ply',
+              viz_icosphere.get_vertices().transpose(0, 1).numpy(),
+              rgb=rgb_vertices.cpu().numpy(),
+              faces=viz_icosphere.get_all_face_vertex_indices().T.numpy(),
+              text=False)
 
 # -------------------------------------------------
 # Compute SIFT descriptors for each tangent image
 # -------------------------------------------------
-tangent_image_kp, tangent_image_desc = sift_tangent_images(
-    tex_image, corners, img.shape[-2:], crop_degree=25)
+tangent_image_kp, tangent_image_desc = sift_tangent_images(tex_image,
+                                                           base_order,
+                                                           sample_order,
+                                                           img.shape[-2:],
+                                                           crop_degree=25)
 print('Num Tangent Image Keypoints:', tangent_image_kp.shape[0])
 
 if save_ply:
@@ -93,11 +94,13 @@ ax.imshow(img)
 ax.get_xaxis().set_ticks([])
 ax.get_yaxis().set_ticks([])
 ax.plot(erp_kp[:, 0], erp_kp[:, 1], 'r.', markersize=0.7)
-tangent_image_kp[(tangent_image_kp[:, [0]] >= img.shape[-2] - 1
-                  ).expand_as(tangent_image_kp)] = float('nan')
+tangent_image_kp[(tangent_image_kp[:, [0]] >= img.shape[-2] -
+                  1).expand_as(tangent_image_kp)] = float('nan')
 ax.plot(tangent_image_kp[:, 0], tangent_image_kp[:, 1], 'b.', markersize=0.7)
 plt.axis('off')
 
-fig.savefig(
-    'outputs/sift-keypoints.png', bbox_inches='tight', pad_inches=0, dpi=600)
+fig.savefig('outputs/sift-keypoints.png',
+            bbox_inches='tight',
+            pad_inches=0,
+            dpi=600)
 plt.show()
