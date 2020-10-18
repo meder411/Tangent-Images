@@ -13,6 +13,6 @@ This directory contains scripts to generate tangent images, demo some non-deep l
 * **[compute_angular_resolution.py](./compute_angular_resolution.py)**: Prints the FOV and angular resolution at each base level for the provided input resolution.
 * **[create_tangent_image_obj.py](./create_tangent_image_obj.py)**: Writes an OBJ file of tangent images textured with the data from an equirectangular image
 * **[draw_sift_keypoints.py](./draw_sift_keypoints.py)**: Detects SIFT keypoints on both an equirectangular image and tangent images with base levels {0, 1, 2}, and draws the results with scale and orientation. Saves the outputs to PDF files.
-* **[generate_tangent_images.py](./generate_tangent_images.py)**: Turns an equirectangular images into tangent image patches
+* **[generate_tangent_images.py](./generate_tangent_images.py)**: Turns an equirectangular images into tangent image patches. Also returns the binary mask of the valid (i.e. non-padding) regions of each tangent image.
 * **[normalize_camera.py](./normalize_camera.py)**: Demonstrates the camera normalization used for pre-processing during the transfer learning experiments
 * **[visualize_icosphere_sampling.py](./visualize_icosphere_sampling.py)**: Visualizes tangent images alongside the icosahedron as well as the sampling points on the sphere
